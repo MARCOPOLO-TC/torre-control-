@@ -255,6 +255,7 @@ textarea{resize:vertical;min-height:60px;}
 
 
 /* ESTADO PENDIENTE DE INICIAR RUTA */
+.row-custodia td{color:#C0392B!important;font-weight:800!important;}
 .row-pendiente{background:#FFF3E0!important;border-left:3px solid #F57C00;}
 .row-pendiente:hover{background:#FFE0B2!important;}
 
@@ -1928,7 +1929,8 @@ function renderTable(){
       else if(isSiniestro)  rowClass = 'row-siniestro';
       else if(pendChk)      rowStyle = 'background:#FFFBEB!important';
     }
-    if(r.custodia && !isLocked) rowStyle += ';color:#C0392B!important;font-weight:700';
+    if(r.custodia && !isLocked) rowClass += ' row-custodia';
+    if(r.custodia && !isLocked) rowStyle += ';font-weight:800!important';
 
     // Banner de bloqueo — reemplaza la celda de placa
     const lockBanner = isLocked
