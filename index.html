@@ -1028,7 +1028,7 @@ const PGS=50;
 // ═══════════════════════════════════════════════
 // SESIÓN DE OPERADOR
 // ═══════════════════════════════════════════════
-let SESSION_OP = localStorage.getItem('inlog_session_op') || '';
+let SESSION_OP = '';
 const SESSION_ID = 'sess_' + Date.now().toString(36) + Math.random().toString(36).slice(2);
 
 function initSessionPopup(){
@@ -1038,17 +1038,13 @@ function initSessionPopup(){
     o.value = o.textContent = op;
     sel.appendChild(o);
   });
-  if(SESSION_OP){
-    sel.value = SESSION_OP;
-    closeSessionPopup();
-  }
+  // Siempre mostrar el popup al cargar — no recordar operador
 }
 
 function startSession(){
   const sel = document.getElementById('opSelect');
   if(!sel.value){ sel.style.borderColor='var(--red)'; return; }
   SESSION_OP = sel.value;
-  localStorage.setItem('inlog_session_op', SESSION_OP);
   closeSessionPopup();
 }
 
@@ -1550,7 +1546,7 @@ function startFallbackPolling(){
 // ═══════════════════════════════════════════════
 function initSelects(){
   repopAllSelects();
-  document.getElementById('importFecha').value=new Date().toISOString().slice(0,10);
+  document.getElementById('importFecha').value=localDate();
 }
 
 function repopAllSelects(){
@@ -1582,9 +1578,13 @@ function setCustodia(val){
   document.getElementById('f_cust_no').classList.toggle('active', !val);
 }
 
+function localDate(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 function updateKPIs(){
-  const t=new Date().toISOString().slice(0,10);
-  const hoy=records.filter(r=>r.fecha===t);
+  const t=localDate();
+  const hoy=records.filter(r=>(r.fecha||'').slice(0,10)===t);
   document.getElementById('hT').textContent=hoy.length;
 
   // Fleet dashboard
@@ -2042,9 +2042,9 @@ function renderTable(){
 // Novedades inline edit
 function openNovEdit(id){
   if(checkLock(id)) return;
-  acquireLock(id);
   const r=records.find(x=>x._id===id);if(!r)return;
   const txtEl=document.getElementById(`nov_${id}_txt`);if(!txtEl)return;
+  acquireLock(id);
   const parent=txtEl.parentNode;
   parent.innerHTML=`<textarea class="nov-edit" id="nov_${id}_ta" onblur="saveNov('${id}')" onkeydown="if(event.key==='Escape')cancelNov('${id}','${esc(r.novedades||'')}')">${r.novedades||''}</textarea>`;
   const ta=document.getElementById(`nov_${id}_ta`);
@@ -2101,7 +2101,7 @@ function openForm(mode,id){
     document.getElementById('f_cuenta').value=r.cuenta||'';
     setCustodia(!!r.custodia);
   } else {
-    document.getElementById('f_fecha').value=new Date().toISOString().slice(0,10);
+    document.getElementById('f_fecha').value=localDate();
     ['f_sol','f_cuenta','f_placa','f_cond','f_tel','f_pan','f_gps','f_chp','f_ruta','f_fsal','f_hora','f_hreal','f_ubic','f_est','f_nov'].forEach(id=>{
       const el=document.getElementById(id);if(!el)return;el.tagName==='SELECT'?el.selectedIndex=0:(el.value='');
     });
@@ -2722,7 +2722,7 @@ function exportFinRutaExcel(solicitante){
     XLSX.utils.book_append_sheet(wb, ws, 'RESUMEN');
   }
 
-  const fecha = new Date().toISOString().slice(0,10);
+  const fecha = localDate();
   const nombre = solicitante ? `FIN_RUTA_${solicitante.replace(/\s+/g,'_')}_${fecha}` : `FIN_RUTA_CONSOLIDADO_${fecha}`;
   XLSX.writeFile(wb, nombre + '.xlsx');
   closeExportModal();
@@ -2877,7 +2877,7 @@ function exportCSV(){
   const rows=[hdrs.join(',')];
   (filtered.length?filtered:records).forEach(r=>rows.push(flds.map(f=>`"${(r[f]||'').replace(/"/g,'""')}"`).join(',')));
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.join('\n')],{type:'text/csv;charset=utf-8;'}));
-  a.download=`BITACORA_INLOG_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+  a.download=`BITACORA_INLOG_${localDate()}.csv`;a.click();
   toast('CSV exportado','ok');
 }
 
@@ -3221,7 +3221,7 @@ function renderAuditTable(){
 
 function renderAuditStats(){
   const total=auditLogs.length;
-  const hoy=new Date().toISOString().slice(0,10);
+  const hoy=localDate();
   const hoyCount=auditLogs.filter(l=>l.ts.slice(0,10)===hoy).length;
   const ops=new Set(auditLogs.map(l=>l.operator).filter(Boolean)).size;
   document.getElementById('auditStats').innerHTML=`
@@ -3247,7 +3247,7 @@ function exportAuditCSV(){
   const csv=rows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
   const a=document.createElement('a');
   a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);
-  a.download=`auditoria_inlog_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download=`auditoria_inlog_${localDate()}.csv`;
   a.click();
 }
 
