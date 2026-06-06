@@ -1928,6 +1928,7 @@ function renderTable(){
       else if(isSiniestro)  rowClass = 'row-siniestro';
       else if(pendChk)      rowStyle = 'background:#FFFBEB!important';
     }
+    if(r.custodia && !isLocked) rowStyle += ';color:#C0392B!important;font-weight:700';
 
     // Banner de bloqueo — reemplaza la celda de placa
     const lockBanner = isLocked
