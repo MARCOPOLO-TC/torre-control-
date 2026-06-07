@@ -255,7 +255,6 @@ textarea{resize:vertical;min-height:60px;}
 
 
 /* ESTADO PENDIENTE DE INICIAR RUTA */
-.row-custodia td{color:#C0392B!important;font-weight:800!important;}
 .row-pendiente{background:#FFF3E0!important;border-left:3px solid #F57C00;}
 .row-pendiente:hover{background:#FFE0B2!important;}
 
@@ -1178,7 +1177,6 @@ const SB_HDR  = {'Content-Type':'application/json','apikey':SB_KEY,'Authorizatio
 let   SB_OK   = false;
 
 function toRow(r){
-  // ubic (puntos de ruta) se guarda solo en localStorage, no en Supabase
   return {
     record_id:r._id, fecha:r.fecha||'', solicitante:r.solicitante||'',
     cuenta:r.cuenta||'', custodia:!!r.custodia, placas:r.placas||'',
@@ -1186,13 +1184,21 @@ function toRow(r){
     gps:r.gps||'', chapa:r.chapa||'', ruta:r.ruta||'',
     fecha_salida:r.fecha_salida||'', hora:r.hora||'', hora_real:r.hora_real||'',
     operador:r.operador||'', ubicacion:r.ubicacion||'', estado:r.estado||'',
-    novedades:r.novedades||'', updated_at:new Date().toISOString()
+    novedades:r.novedades||'',
+    ubic: Array.isArray(r.ubic) ? r.ubic : [],
+    updated_at:new Date().toISOString()
   };
 }
 function fromRow(row, localMap){
-  // ubic no viene de Supabase — se recupera del mapa local pre-cargado
-  const localRec = localMap ? localMap[row.record_id] : null;
-  const ubic = localRec && Array.isArray(localRec.ubic) ? localRec.ubic : [];
+  // ubic viene de Supabase; si la columna aún no existe en el servidor,
+  // se hace fallback al localStorage local como compatibilidad
+  let ubic = [];
+  if(Array.isArray(row.ubic) && row.ubic.length > 0){
+    ubic = row.ubic; // fuente de verdad: Supabase
+  } else {
+    const localRec = localMap ? localMap[row.record_id] : null;
+    if(localRec && Array.isArray(localRec.ubic)) ubic = localRec.ubic;
+  }
   return {
     _id:row.record_id, fecha:row.fecha||'', solicitante:row.solicitante||'',
     cuenta:row.cuenta||'', custodia:!!row.custodia, placas:row.placas||'',
@@ -1399,38 +1405,28 @@ function applyRemoteRow(row, eventType){
     if(editId === rec._id){ toast('⚠️ Este registro fue eliminado por otro operador','err'); closeForm(); }
     if(clId  === rec._id){ closeChecklist(); }
     records = records.filter(x => x._id !== rec._id);
-    _pendingWrites.delete(rec._id); // limpiar si había write pendiente
+    _pendingWrites.delete(rec._id);
   } else {
     const idx = records.findIndex(x => x._id === rec._id);
     if(idx >= 0){
       if(editId === rec._id){
-        // Form abierto: solo avisar, no sobreescribir
         toast('ℹ️ REGISTRO OCUPADO — guardado por ' + (rec.operador||'otro operador'),'inf');
       } else if(_pendingWrites.has(rec._id)){
-        // Hay un write propio en vuelo — merge campo a campo:
-        // preservar los campos que el operador local modificó,
-        // actualizar los campos que SOLO el otro operador cambió
         const pending = _pendingWrites.get(rec._id);
-        const localUbic = records[idx].ubic;
-        // Los campos del pending son los que este operador escribió (versión definitiva local)
-        // El registro remoto puede tener otros campos actualizados por otro operador
-        records[idx] = {
-          ...rec,           // base: todo del servidor (otro operador)
-          ...pending,       // sobreescribir con lo que este operador cambió
-          ubic: (localUbic&&localUbic.length) ? localUbic : rec.ubic,
-          _id: rec._id
-        };
+        // ubic: si el drawer está abierto sobre este registro, preservar edición local;
+        // de lo contrario usar la versión del servidor (puede venir de otro operador)
+        const keepUbic = (ubicId === rec._id) ? records[idx].ubic : rec.ubic;
+        records[idx] = { ...rec, ...pending, ubic: keepUbic, _id: rec._id };
       } else {
-        // Merge: preservar ubic local, aplicar todo lo demás del servidor
-        const localUbic = records[idx].ubic;
-        records[idx] = { ...rec, ubic: (localUbic&&localUbic.length) ? localUbic : rec.ubic };
+        // ubic del servidor es la fuente de verdad; si el drawer está abierto no tocar
+        const keepUbic = (ubicId === rec._id) ? records[idx].ubic : rec.ubic;
+        records[idx] = { ...rec, ubic: keepUbic };
       }
     } else {
-      records.unshift(rec); // registro nuevo creado por otro operador
+      records.unshift(rec);
     }
   }
   localStorage.setItem(STORE, JSON.stringify(records));
-  // Throttle: agrupar múltiples eventos remotos en un solo re-render
   scheduleRender();
   flashSync();
 }
@@ -1929,8 +1925,6 @@ function renderTable(){
       else if(isSiniestro)  rowClass = 'row-siniestro';
       else if(pendChk)      rowStyle = 'background:#FFFBEB!important';
     }
-    if(r.custodia && !isLocked) rowClass += ' row-custodia';
-    if(r.custodia && !isLocked) rowStyle += ';font-weight:800!important';
 
     // Banner de bloqueo — reemplaza la celda de placa
     const lockBanner = isLocked
