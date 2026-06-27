@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Despachos — Torre de Control INLOG</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --bg2: #181c24;
+    --card: #1e2330;
+    --card2: #252b3b;
+    --border: #2e3448;
+    --border2: #3d4562;
+    --text: #e8eaf0;
+    --text2: #8b92a8;
+    --text3: #555f7a;
+    --accent: #3b7fff;
+    --accent-bg: rgba(59,127,255,0.10);
+    --accent-border: rgba(59,127,255,0.30);
+    --green: #22c97a;
+    --green-bg: rgba(34,201,122,0.10);
+    --green-border: rgba(34,201,122,0.25);
+    --amber: #f5a623;
+    --amber-bg: rgba(245,166,35,0.10);
+    --amber-border: rgba(245,166,35,0.25);
+    --red: #f05252;
+    --red-bg: rgba(240,82,82,0.10);
+    --red-border: rgba(240,82,82,0.25);
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
+
+  /* HEADER */
+  .header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 32px; height: 32px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #fff; flex-shrink: 0; }
+  .header h1 { font-size: 15px; font-weight: 600; color: var(--text); }
+  .header-sub { font-size: 12px; color: var(--text2); }
+  .header-right { display: flex; align-items: center; gap: 16px; }
+  .clock { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--accent); letter-spacing: 1px; }
+  .date-label { font-size: 11px; color: var(--text2); text-align: right; }
+  .operator-badge { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--text2); }
+
+  /* LAYOUT */
+  .layout { display: grid; grid-template-columns: 1fr 380px; gap: 0; height: calc(100vh - 57px); }
+  .main-panel { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+  .side-panel { background: var(--bg2); border-left: 1px solid var(--border); padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; }
+
+  /* SECCIÓN FORMULARIO */
+  .section-title { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px; }
+  .form-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid.three { grid-template-columns: 1fr 1fr 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-group.full { grid-column: 1 / -1; }
+  label { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; }
+  input, select, textarea { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 11px; color: var(--text); font-size: 13px; font-family: inherit; transition: border-color 0.2s; outline: none; width: 100%; }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+  input::placeholder { color: var(--text3); }
+  select option { background: var(--card); }
+  textarea { resize: vertical; min-height: 60px; }
+
+  /* SANTO Y SEÑA */
+  .sena-card { background: var(--amber-bg); border: 1px solid var(--amber-border); border-radius: var(--radius); padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+  .sena-icon { font-size: 20px; flex-shrink: 0; }
+  .sena-text { flex: 1; }
+  .sena-text p { font-size: 11px; color: var(--amber); font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .sena-value { font-size: 22px; font-weight: 700; color: var(--amber); letter-spacing: 2px; margin-top: 2px; }
+  .btn-gen-sena { background: var(--amber); border: none; border-radius: var(--radius-sm); padding: 6px 12px; font-size: 12px; font-weight: 600; color: #111; cursor: pointer; transition: opacity 0.2s; white-space: nowrap; }
+  .btn-gen-sena:hover { opacity: 0.85; }
+
+  /* BOTONES */
+  .btn-primary { background: var(--accent); border: none; border-radius: var(--radius-sm); padding: 10px 20px; font-size: 13px; font-weight: 600; color: #fff; cursor: pointer; transition: opacity 0.2s; display: flex; align-items: center; gap: 8px; justify-content: center; width: 100%; }
+  .btn-primary:hover { opacity: 0.88; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-secondary { background: transparent; border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 8px 14px; font-size: 12px; color: var(--text2); cursor: pointer; transition: all 0.2s; }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: var(--red-bg); border: 1px solid var(--red-border); border-radius: var(--radius-sm); padding: 5px 10px; font-size: 11px; color: var(--red); cursor: pointer; transition: opacity 0.2s; }
+  .btn-danger:hover { opacity: 0.8; }
+
+  /* TABLA DE DESPACHOS */
+  .dispatch-table { width: 100%; border-collapse: collapse; }
+  .dispatch-table th { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  .dispatch-table td { padding: 10px; border-bottom: 1px solid var(--border); font-size: 12px; vertical-align: middle; }
+  .dispatch-table tr:last-child td { border-bottom: none; }
+  .dispatch-table tr:hover td { background: var(--card2); }
+  .placa { font-weight: 700; font-family: monospace; font-size: 13px; background: var(--bg); border: 1px solid var(--border2); padding: 2px 7px; border-radius: 4px; letter-spacing: 1px; }
+  .status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+  .status-pending { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border); }
+  .status-scanning { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+  .status-authorized { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block; }
+  .status-dot.pulse { animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+  .btn-qr { background: var(--accent-bg); border: 1px solid var(--accent-border); border-radius: 5px; padding: 4px 9px; font-size: 11px; color: var(--accent); cursor: pointer; font-weight: 600; transition: opacity 0.2s; }
+  .btn-qr:hover { opacity: 0.8; }
+  .btn-auth { background: var(--green-bg); border: 1px solid var(--green-border); border-radius: 5px; padding: 4px 9px; font-size: 11px; color: var(--green); cursor: pointer; font-weight: 600; transition: opacity 0.2s; }
+  .btn-auth:hover { opacity: 0.8; }
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); }
+  .empty-state .icon { font-size: 36px; margin-bottom: 10px; opacity: 0.4; }
+
+  /* PANEL LATERAL — QR */
+  .qr-container { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .qr-placeholder { width: 200px; height: 200px; background: var(--bg); border: 2px dashed var(--border2); border-radius: var(--radius-sm); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; color: var(--text3); }
+  .qr-placeholder span { font-size: 36px; opacity: 0.3; }
+  .qr-placeholder p { font-size: 12px; text-align: center; line-height: 1.4; }
+  #qr-canvas { background: white; padding: 10px; border-radius: var(--radius-sm); }
+  .qr-info { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; }
+  .qr-info-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .qr-info-row:last-child { border-bottom: none; }
+  .qr-info-key { font-size: 10px; color: var(--text3); font-weight: 600; text-transform: uppercase; }
+  .qr-info-val { font-size: 12px; color: var(--text); font-weight: 500; text-align: right; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .qr-validity { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--green); font-weight: 600; }
+  .qr-validity.expired { color: var(--red); }
+  .btn-print { background: transparent; border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 8px 16px; font-size: 12px; color: var(--text2); cursor: pointer; transition: all 0.2s; width: 100%; }
+  .btn-print:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* STATS */
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; text-align: center; }
+  .stat-num { font-size: 24px; font-weight: 700; }
+  .stat-num.blue { color: var(--accent); }
+  .stat-num.amber { color: var(--amber); }
+  .stat-num.green { color: var(--green); }
+  .stat-label { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 2px; }
+
+  /* ALERTAS */
+  .alert { background: var(--amber-bg); border: 1px solid var(--amber-border); border-radius: var(--radius-sm); padding: 10px 14px; font-size: 12px; color: var(--amber); display: flex; align-items: center; gap: 8px; }
+  .alert.green { background: var(--green-bg); border-color: var(--green-border); color: var(--green); }
+  .alert.red { background: var(--red-bg); border-color: var(--red-border); color: var(--red); }
+  #toast { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: none; }
+  .toast-inner { background: var(--card2); border: 1px solid var(--border2); border-radius: var(--radius); padding: 12px 18px; font-size: 13px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 10px; min-width: 260px; }
+  .toast-inner.ok { border-color: var(--green-border); color: var(--green); }
+  .toast-inner.err { border-color: var(--red-border); color: var(--red); }
+
+  /* MODAL */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--card); border: 1px solid var(--border2); border-radius: 14px; padding: 28px; width: 460px; max-width: 95vw; }
+  .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+  .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .modal-detail { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 14px; }
+  .modal-detail-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .modal-detail-row:last-child { border-bottom: none; }
+  .modal-detail-key { color: var(--text2); }
+  .modal-detail-val { font-weight: 600; color: var(--text); text-align: right; }
+  .sena-display { text-align: center; background: var(--amber-bg); border: 1px solid var(--amber-border); border-radius: var(--radius-sm); padding: 14px; margin: 12px 0; }
+  .sena-display p { font-size: 11px; color: var(--amber); font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
+  .sena-display .word { font-size: 28px; font-weight: 700; color: var(--amber); letter-spacing: 3px; }
+
+  @media print {
+    body { background: white; color: black; }
+    .layout { display: block; }
+    .main-panel, .header { display: none; }
+    .side-panel { border: none; padding: 0; }
+    #qr-canvas { margin: 0 auto; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">TC</div>
+    <div>
+      <div class="header h1" style="font-size:15px;font-weight:600;">Control de Despachos</div>
+      <div class="header-sub">Torre de Control · INLOG S.A.</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div>
+      <div class="clock" id="clock">--:--:--</div>
+      <div class="date-label" id="date-label">--</div>
+    </div>
+    <div class="operator-badge" id="op-badge">⬤ &nbsp;En línea</div>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- PANEL PRINCIPAL -->
+  <div class="main-panel">
+
+    <!-- STATS -->
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-num blue" id="stat-pending">0</div>
+        <div class="stat-label">Pendientes</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num amber" id="stat-scanning">0</div>
+        <div class="stat-label">En portería</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num green" id="stat-auth">0</div>
+        <div class="stat-label">Autorizados hoy</div>
+      </div>
+    </div>
+
+    <!-- ALERTA EN PORTERÍA -->
+    <div id="porteria-alert" class="alert" style="display:none;">
+      <span>⚠</span>
+      <span id="porteria-msg">Un conductor está esperando validación en portería.</span>
+    </div>
+
+    <!-- FORMULARIO NUEVO DESPACHO -->
+    <div>
+      <div class="section-title">Registrar nuevo despacho</div>
+      <div class="form-card">
+        <!-- Santo y seña del día -->
+        <div class="sena-card" style="margin-bottom:16px;">
+          <div class="sena-icon">🔑</div>
+          <div class="sena-text">
+            <p>Santo y seña del día</p>
+            <div class="sena-value" id="sena-valor">---</div>
+          </div>
+          <button class="btn-gen-sena" onclick="generarSena()">Generar nuevo</button>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Placa del vehículo *</label>
+            <input type="text" id="f-placa" placeholder="ABC-1234" maxlength="8" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+          </div>
+          <div class="form-group">
+            <label>Nombre del conductor *</label>
+            <input type="text" id="f-conductor" placeholder="Nombre completo">
+          </div>
+          <div class="form-group">
+            <label>Celular del conductor *</label>
+            <input type="tel" id="f-celular" placeholder="09XXXXXXXX">
+          </div>
+          <div class="form-group">
+            <label>Cliente *</label>
+            <select id="f-cliente">
+              <option value="">Seleccionar...</option>
+              <option>LETERAGO</option>
+              <option>FARMAYALA</option>
+              <option>DINADEC</option>
+              <option>SIEMENS</option>
+              <option>PMI GYE</option>
+              <option>LINDE</option>
+              <option>OTRO</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Centro de distribución origen</label>
+            <select id="f-origen">
+              <option value="">Seleccionar...</option>
+              <option>CD Pifo</option>
+              <option>CD Perimetral</option>
+              <option>CD Cuenca</option>
+              <option>CD Manabí</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Destino / ruta</label>
+            <input type="text" id="f-destino" placeholder="Ciudad o punto de entrega">
+          </div>
+          <div class="form-group">
+            <label>Custodia reacción</label>
+            <select id="f-custodia-reaccion">
+              <option value="">Sin custodia reacción</option>
+              <option>SEGARPRI</option>
+              <option>INCUSEG</option>
+              <option>OCEAN SECURITY</option>
+              <option>CIPOL</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Custodia avanzada</label>
+            <select id="f-custodia-avanzada">
+              <option value="">Sin custodia avanzada</option>
+              <option>SEGARPRI</option>
+              <option>INCUSEG</option>
+              <option>OCEAN SECURITY</option>
+              <option>CIPOL</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Hora máx. de salida</label>
+            <input type="time" id="f-hora">
+          </div>
+          <div class="form-group full">
+            <label>Observaciones</label>
+            <textarea id="f-obs" placeholder="Instrucciones especiales, número de guía, etc."></textarea>
+          </div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:10px;">
+          <button class="btn-primary" onclick="registrarDespacho()" id="btn-registrar">
+            <span>＋</span> Registrar despacho y generar QR
+          </button>
+          <button class="btn-secondary" onclick="limpiarFormulario()">Limpiar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLA DE DESPACHOS -->
+    <div>
+      <div class="section-title">Despachos del día</div>
+      <div class="form-card" style="padding:0;overflow:hidden;">
+        <div id="tabla-container">
+          <div class="empty-state">
+            <div class="icon">📋</div>
+            <p>No hay despachos registrados hoy.</p>
+            <p style="font-size:11px;margin-top:6px;color:var(--text3)">Registra el primer despacho usando el formulario.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PANEL LATERAL — QR -->
+  <div class="side-panel">
+    <div>
+      <div class="section-title">QR de despacho</div>
+      <div class="qr-container">
+        <div id="qr-placeholder" class="qr-placeholder">
+          <span>▣</span>
+          <p>Registra un despacho para generar el QR</p>
+        </div>
+        <div id="qr-canvas-wrap" style="display:none; flex-direction:column; align-items:center; gap:10px; width:100%;">
+          <div id="qr-canvas"></div>
+          <div class="qr-validity" id="qr-validity">
+            <span class="status-dot pulse" style="background:var(--green);"></span>
+            QR válido — 1 solo uso
+          </div>
+          <div class="qr-info" id="qr-info"></div>
+          <button class="btn-print" onclick="imprimirQR()">⎙ Imprimir QR</button>
+          <button class="btn-secondary" style="width:100%;font-size:12px;" onclick="copiarLink()">⧉ Copiar enlace de validación</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSTRUCCIONES -->
+    <div>
+      <div class="section-title">Protocolo de uso</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;gap:10px;align-items:flex-start;">
+          <span style="color:var(--accent);font-weight:700;font-size:13px;flex-shrink:0;">1</span>
+          <div>
+            <p style="font-size:12px;font-weight:600;color:var(--text);">Registrar despacho</p>
+            <p style="font-size:11px;color:var(--text2);margin-top:2px;line-height:1.5;">Ingresa los datos del RDT-05. El sistema genera el QR automáticamente.</p>
+          </div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;gap:10px;align-items:flex-start;">
+          <span style="color:var(--accent);font-weight:700;font-size:13px;flex-shrink:0;">2</span>
+          <div>
+            <p style="font-size:12px;font-weight:600;color:var(--text);">Entregar QR al conductor</p>
+            <p style="font-size:11px;color:var(--text2);margin-top:2px;line-height:1.5;">Imprime o envía por WhatsApp. El conductor lo muestra en portería.</p>
+          </div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;gap:10px;align-items:flex-start;">
+          <span style="color:var(--amber);font-weight:700;font-size:13px;flex-shrink:0;">3</span>
+          <div>
+            <p style="font-size:12px;font-weight:600;color:var(--text);">Guardia escanea → TC recibe alerta</p>
+            <p style="font-size:11px;color:var(--text2);margin-top:2px;line-height:1.5;">Cuando el guardia escanea, aparece alerta en "En portería". El operador procede con el protocolo Hunter.</p>
+          </div>
+        </div>
+        <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;gap:10px;align-items:flex-start;">
+          <span style="color:var(--green);font-weight:700;font-size:13px;flex-shrink:0;">4</span>
+          <div>
+            <p style="font-size:12px;font-weight:600;color:var(--text);">Autorizar salida</p>
+            <p style="font-size:11px;color:var(--text2);margin-top:2px;line-height:1.5;">Tras validar por teléfono (pánico, cerradura, celular, santo y seña), presiona "Autorizar" en la tabla.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DE AUTORIZACIÓN -->
+<div class="modal-overlay" id="modal-auth">
+  <div class="modal">
+    <h2>🔐 Autorizar salida</h2>
+    <div class="modal-detail" id="modal-detail-content"></div>
+    <div class="sena-display">
+      <p>Santo y seña del día</p>
+      <div class="word" id="modal-sena">---</div>
+    </div>
+    <p style="font-size:12px;color:var(--text2);line-height:1.6;">Confirma que has verificado por teléfono: nombre del conductor, botón de pánico activo, cerradura satelital cerrada, celular de contacto correcto y el santo y seña entregado.</p>
+    <div class="modal-actions">
+      <button class="btn-primary" onclick="confirmarAutorizacion()" style="flex:1;">✓ Confirmar autorización</button>
+      <button class="btn-secondary" onclick="cerrarModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast">
+  <div class="toast-inner" id="toast-inner"></div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://cnzldoetdehaflihrswi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuemxkb2V0ZGVoYWZsaWhyc3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNjIwNDIsImV4cCI6MjA5NTYzODA0Mn0.FltL4aNuTr0vAJcHtROeY5QyBB3WRb8UjHwGyFD-B5E';
+const TABLA = 'despachos_qr';
+
+let despachos = [];
+let despachoSeleccionado = null;
+let senaDelDia = '';
+let pollingInterval = null;
+
+// ═══════════════════════════════════════════
+// RELOJ
+// ═══════════════════════════════════════════
+function actualizarReloj() {
+  const now = new Date();
+  document.getElementById('clock').textContent = now.toLocaleTimeString('es-EC', {hour12:false});
+  document.getElementById('date-label').textContent = now.toLocaleDateString('es-EC', {weekday:'long', day:'numeric', month:'long'});
+}
+setInterval(actualizarReloj, 1000);
+actualizarReloj();
+
+// ═══════════════════════════════════════════
+// SANTO Y SEÑA
+// ═══════════════════════════════════════════
+const PALABRAS = ['AGUILA','CONDOR','JAGUAR','TITAN','FALCÓN','NEXUS','OMEGA','DELTA','SIGMA','ATLAS','COBRA','PUMA','ORION','VEGA','ZENIT'];
+function generarSena() {
+  const w1 = PALABRAS[Math.floor(Math.random()*PALABRAS.length)];
+  const w2 = PALABRAS[Math.floor(Math.random()*PALABRAS.length)];
+  senaDelDia = w1 + '-' + w2;
+  document.getElementById('sena-valor').textContent = senaDelDia;
+  document.getElementById('modal-sena').textContent = senaDelDia;
+  localStorage.setItem('inlog_sena_' + fechaHoy(), senaDelDia);
+}
+function fechaHoy() {
+  return new Date().toISOString().slice(0,10);
+}
+function cargarSena() {
+  const guardada = localStorage.getItem('inlog_sena_' + fechaHoy());
+  if (guardada) {
+    senaDelDia = guardada;
+    document.getElementById('sena-valor').textContent = senaDelDia;
+    document.getElementById('modal-sena').textContent = senaDelDia;
+  } else {
+    generarSena();
+  }
+}
+
+// ═══════════════════════════════════════════
+// SUPABASE HELPERS
+// ═══════════════════════════════════════════
+async function sbFetch(path, options={}) {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+    ...options,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+      ...options.headers
+    }
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
+  const txt = await res.text();
+  return txt ? JSON.parse(txt) : [];
+}
+
+// ═══════════════════════════════════════════
+// CARGAR DESPACHOS DEL DÍA
+// ═══════════════════════════════════════════
+async function cargarDespachos() {
+  try {
+    const hoy = fechaHoy();
+    const data = await sbFetch(`${TABLA}?fecha_despacho=eq.${hoy}&order=created_at.desc`);
+    despachos = data;
+    renderTabla();
+    actualizarStats();
+    verificarAlertas();
+  } catch(e) {
+    console.error('Error cargando despachos:', e);
+  }
+}
+
+// ═══════════════════════════════════════════
+// REGISTRAR DESPACHO
+// ═══════════════════════════════════════════
+async function registrarDespacho() {
+  const placa = document.getElementById('f-placa').value.trim();
+  const conductor = document.getElementById('f-conductor').value.trim();
+  const celular = document.getElementById('f-celular').value.trim();
+  const cliente = document.getElementById('f-cliente').value;
+
+  if (!placa || !conductor || !celular || !cliente) {
+    toast('Completa los campos obligatorios (*)', 'err');
+    return;
+  }
+
+  const btn = document.getElementById('btn-registrar');
+  btn.disabled = true;
+  btn.textContent = 'Guardando...';
+
+  const despachoId = 'DS-' + Date.now();
+  const payload = {
+    despacho_id: despachoId,
+    placa: placa,
+    conductor: conductor,
+    celular: celular,
+    cliente: cliente,
+    origen: document.getElementById('f-origen').value,
+    destino: document.getElementById('f-destino').value,
+    custodia_reaccion: document.getElementById('f-custodia-reaccion').value,
+    custodia_avanzada: document.getElementById('f-custodia-avanzada').value,
+    hora_max_salida: document.getElementById('f-hora').value || null,
+    observaciones: document.getElementById('f-obs').value.trim(),
+    fecha_despacho: fechaHoy(),
+    sena_dia: senaDelDia,
+    estado: 'pendiente',
+    qr_usado: false
+  };
+
+  try {
+    const resultado = await sbFetch(TABLA, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    const nuevo = Array.isArray(resultado) ? resultado[0] : resultado;
+    despachos.unshift(nuevo);
+    renderTabla();
+    actualizarStats();
+    mostrarQR(nuevo);
+    limpiarFormulario();
+    toast('Despacho registrado y QR generado', 'ok');
+  } catch(e) {
+    console.error(e);
+    // Si la tabla no existe, mostrar instrucciones SQL
+    if (e.message.includes('does not exist') || e.message.includes('relation')) {
+      mostrarInstruccionesSQL();
+    } else {
+      toast('Error al guardar: ' + e.message, 'err');
+    }
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<span>＋</span> Registrar despacho y generar QR';
+}
+
+function mostrarInstruccionesSQL() {
+  const msg = `⚠️ Tabla no creada aún.\n\nEjecuta este SQL en Supabase → SQL Editor:\n\n${getSQLCreacion()}`;
+  alert(msg);
+}
+
+function getSQLCreacion() {
+  return `CREATE TABLE IF NOT EXISTS despachos_qr (
+  id bigserial PRIMARY KEY,
+  despacho_id text UNIQUE NOT NULL,
+  placa text NOT NULL,
+  conductor text NOT NULL,
+  celular text NOT NULL,
+  cliente text NOT NULL,
+  origen text,
+  destino text,
+  custodia text,
+  hora_max_salida text,
+  observaciones text,
+  fecha_despacho date NOT NULL DEFAULT CURRENT_DATE,
+  sena_dia text,
+  estado text DEFAULT 'pendiente',
+  qr_usado boolean DEFAULT false,
+  timestamp_escaneo timestamptz,
+  timestamp_autorizacion timestamptz,
+  operador_autorizo text,
+  created_at timestamptz DEFAULT now()
+);
+
+ALTER TABLE despachos_qr ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "acceso_despachos" ON despachos_qr FOR ALL USING (true) WITH CHECK (true);`;
+}
+
+// ═══════════════════════════════════════════
+// GENERAR QR
+// ═══════════════════════════════════════════
+const BASE_URL = window.location.href.replace('tc_despachos.html', 'guardia_validacion.html');
+
+function mostrarQR(despacho) {
+  document.getElementById('qr-placeholder').style.display = 'none';
+  const wrap = document.getElementById('qr-canvas-wrap');
+  wrap.style.display = 'flex';
+
+  const canvasDiv = document.getElementById('qr-canvas');
+  canvasDiv.innerHTML = '';
+
+  const url = `${BASE_URL}?id=${despacho.despacho_id}`;
+
+  new QRCode(canvasDiv, {
+    text: url,
+    width: 200,
+    height: 200,
+    colorDark: '#000000',
+    colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+
+  const info = document.getElementById('qr-info');
+  info.innerHTML = `
+    <div class="qr-info-row"><span class="qr-info-key">ID</span><span class="qr-info-val">${despacho.despacho_id}</span></div>
+    <div class="qr-info-row"><span class="qr-info-key">Placa</span><span class="qr-info-val">${despacho.placa}</span></div>
+    <div class="qr-info-row"><span class="qr-info-key">Conductor</span><span class="qr-info-val">${despacho.conductor}</span></div>
+    <div class="qr-info-row"><span class="qr-info-key">Cliente</span><span class="qr-info-val">${despacho.cliente}</span></div>
+    <div class="qr-info-row"><span class="qr-info-key">Ruta</span><span class="qr-info-val">${despacho.destino || '—'}</span></div>
+  `;
+
+  despachoSeleccionado = despacho;
+}
+
+function copiarLink() {
+  if (!despachoSeleccionado) return;
+  const url = `${BASE_URL}?id=${despachoSeleccionado.despacho_id}`;
+  navigator.clipboard.writeText(url).then(() => toast('Enlace copiado al portapapeles', 'ok'));
+}
+
+function imprimirQR() { window.print(); }
+
+// ═══════════════════════════════════════════
+// TABLA
+// ═══════════════════════════════════════════
+function renderTabla() {
+  const container = document.getElementById('tabla-container');
+  if (!despachos.length) {
+    container.innerHTML = `<div class="empty-state"><div class="icon">📋</div><p>No hay despachos registrados hoy.</p></div>`;
+    return;
+  }
+
+  const rows = despachos.map(d => {
+    let badge = '';
+    if (d.estado === 'pendiente') badge = `<span class="status-badge status-pending"><span class="status-dot"></span>Pendiente</span>`;
+    else if (d.estado === 'en_porteria') badge = `<span class="status-badge status-scanning"><span class="status-dot pulse"></span>En portería</span>`;
+    else if (d.estado === 'autorizado') badge = `<span class="status-badge status-authorized"><span class="status-dot"></span>Autorizado</span>`;
+
+    const acciones = d.estado === 'autorizado'
+      ? `<span style="font-size:11px;color:var(--text3);">✓ Salida registrada</span>`
+      : d.estado === 'en_porteria'
+      ? `<button class="btn-auth" onclick="abrirModalAuth('${d.despacho_id}')">🔐 Autorizar</button>`
+      : `<button class="btn-qr" onclick="mostrarQRExistente('${d.despacho_id}')">▣ Ver QR</button>`;
+
+    const hora = d.created_at ? new Date(d.created_at).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'}) : '--';
+
+    return `<tr>
+      <td><span class="placa">${d.placa}</span></td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${d.conductor}</td>
+      <td style="color:var(--text2);">${d.cliente}</td>
+      <td style="color:var(--text2);">${d.destino || '—'}</td>
+      <td>${badge}</td>
+      <td style="color:var(--text3);">${hora}</td>
+      <td>${acciones}</td>
+    </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <table class="dispatch-table">
+      <thead>
+        <tr>
+          <th>Placa</th><th>Conductor</th><th>Cliente</th><th>Destino</th><th>Estado</th><th>Hora</th><th>Acción</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function actualizarStats() {
+  document.getElementById('stat-pending').textContent = despachos.filter(d=>d.estado==='pendiente').length;
+  document.getElementById('stat-scanning').textContent = despachos.filter(d=>d.estado==='en_porteria').length;
+  document.getElementById('stat-auth').textContent = despachos.filter(d=>d.estado==='autorizado').length;
+}
+
+function verificarAlertas() {
+  const enPorteria = despachos.filter(d=>d.estado==='en_porteria');
+  const alertDiv = document.getElementById('porteria-alert');
+  if (enPorteria.length > 0) {
+    alertDiv.style.display = 'flex';
+    const nombres = enPorteria.map(d=>d.conductor + ' (' + d.placa + ')').join(', ');
+    document.getElementById('porteria-msg').textContent = `⚠ Conductor(es) esperando validación en portería: ${nombres}`;
+  } else {
+    alertDiv.style.display = 'none';
+  }
+}
+
+function mostrarQRExistente(id) {
+  const d = despachos.find(x=>x.despacho_id===id);
+  if (d) mostrarQR(d);
+}
+
+// ═══════════════════════════════════════════
+// MODAL AUTORIZACIÓN
+// ═══════════════════════════════════════════
+let idAutorizando = null;
+
+function abrirModalAuth(id) {
+  const d = despachos.find(x=>x.despacho_id===id);
+  if (!d) return;
+  idAutorizando = id;
+  document.getElementById('modal-sena').textContent = senaDelDia;
+  document.getElementById('modal-detail-content').innerHTML = `
+    <div class="modal-detail-row"><span class="modal-detail-key">Placa</span><span class="modal-detail-val">${d.placa}</span></div>
+    <div class="modal-detail-row"><span class="modal-detail-key">Conductor</span><span class="modal-detail-val">${d.conductor}</span></div>
+    <div class="modal-detail-row"><span class="modal-detail-key">Celular</span><span class="modal-detail-val">${d.celular}</span></div>
+    <div class="modal-detail-row"><span class="modal-detail-key">Cliente</span><span class="modal-detail-val">${d.cliente}</span></div>
+    <div class="modal-detail-row"><span class="modal-detail-key">Destino</span><span class="modal-detail-val">${d.destino||'—'}</span></div>
+    <div class="modal-detail-row"><span class="modal-detail-key">Custodia reacción</span><span class="modal-detail-val">${d.custodia_reaccion||'Sin custodia'}</span></div>
+    <div class="modal-detail-row"><span class="modal-detail-key">Custodia avanzada</span><span class="modal-detail-val">${d.custodia_avanzada||'Sin custodia'}</span></div>
+  `;
+  document.getElementById('modal-auth').classList.add('open');
+}
+
+function cerrarModal() {
+  document.getElementById('modal-auth').classList.remove('open');
+  idAutorizando = null;
+}
+
+async function confirmarAutorizacion() {
+  if (!idAutorizando) return;
+  try {
+    await sbFetch(`${TABLA}?despacho_id=eq.${idAutorizando}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        estado: 'autorizado',
+        timestamp_autorizacion: new Date().toISOString(),
+        operador_autorizo: 'Torre de Control'
+      })
+    });
+    cerrarModal();
+    await cargarDespachos();
+    toast('✓ Salida autorizada y registrada', 'ok');
+  } catch(e) {
+    toast('Error al autorizar: ' + e.message, 'err');
+  }
+}
+
+// ═══════════════════════════════════════════
+// UTILIDADES
+// ═══════════════════════════════════════════
+function limpiarFormulario() {
+  ['f-placa','f-conductor','f-celular','f-destino','f-obs'].forEach(id => document.getElementById(id).value='');
+  ['f-cliente','f-origen','f-custodia-reaccion','f-custodia-avanzada'].forEach(id => document.getElementById(id).selectedIndex=0);
+  document.getElementById('f-hora').value='';
+}
+
+function toast(msg, tipo='ok') {
+  const t = document.getElementById('toast');
+  const inner = document.getElementById('toast-inner');
+  inner.className = 'toast-inner ' + tipo;
+  inner.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(()=>{ t.style.display='none'; }, 3500);
+}
+
+// ═══════════════════════════════════════════
+// SQL HELPER — mostrar en consola
+// ═══════════════════════════════════════════
+console.log('═══ SQL para crear tabla en Supabase ═══');
+console.log(getSQLCreacion());
+console.log('═══════════════════════════════════════');
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+cargarSena();
+cargarDespachos();
+// Polling cada 15 segundos para detectar escaneos de guardias
+pollingInterval = setInterval(cargarDespachos, 15000);
+</script>
+</body>
+</html>
