@@ -760,10 +760,39 @@ console.log(getSQLCreacion());
 console.log('═══════════════════════════════════════');
 
 // ═══════════════════════════════════════════
+// PING ANTI-SUSPENSIÓN SUPABASE
+// Hace una consulta mínima cada 4 días para
+// mantener el proyecto activo (límite: 7 días)
+// ═══════════════════════════════════════════
+async function pingSupabase() {
+  try {
+    await sbFetch(`${TABLA}?limit=1&select=id`);
+    const ahora = Date.now();
+    localStorage.setItem('inlog_last_ping', ahora);
+    console.log('Ping Supabase OK —', new Date().toLocaleString('es-EC'));
+  } catch(e) {
+    console.warn('Ping fallido:', e.message);
+  }
+}
+
+function iniciarPingAutomatico() {
+  const INTERVALO_MS = 4 * 24 * 60 * 60 * 1000; // 4 días en ms
+  const ultimoPing = parseInt(localStorage.getItem('inlog_last_ping') || '0');
+  const ahora = Date.now();
+  // Si han pasado más de 4 días desde el último ping, lanzar inmediatamente
+  if (ahora - ultimoPing > INTERVALO_MS) {
+    pingSupabase();
+  }
+  // Repetir cada 4 días mientras la app esté abierta
+  setInterval(pingSupabase, INTERVALO_MS);
+}
+
+// ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
 cargarSena();
 cargarDespachos();
+iniciarPingAutomatico();
 // Polling cada 15 segundos para detectar escaneos de guardias
 pollingInterval = setInterval(cargarDespachos, 15000);
 </script>
