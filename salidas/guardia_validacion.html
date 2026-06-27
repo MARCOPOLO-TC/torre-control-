@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Validación de Salida — INLOG</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1e2330;
+    --border: #2e3448;
+    --text: #e8eaf0;
+    --text2: #8b92a8;
+    --text3: #555f7a;
+    --green: #22c97a;
+    --green-bg: rgba(34,201,122,0.12);
+    --green-border: rgba(34,201,122,0.30);
+    --red: #f05252;
+    --red-bg: rgba(240,82,82,0.12);
+    --red-border: rgba(240,82,82,0.30);
+    --amber: #f5a623;
+    --amber-bg: rgba(245,166,35,0.12);
+    --amber-border: rgba(245,166,35,0.30);
+    --accent: #3b7fff;
+    --accent-bg: rgba(59,127,255,0.10);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 0 0 40px; }
+
+  /* HEADER */
+  .header { width: 100%; background: #181c24; border-bottom: 1px solid var(--border); padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-box { width: 30px; height: 30px; background: var(--accent); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; color: #fff; }
+  .logo-text { font-size: 14px; font-weight: 600; }
+  .logo-sub { font-size: 11px; color: var(--text2); }
+  .badge-porteria { background: var(--amber-bg); border: 1px solid var(--amber-border); color: var(--amber); border-radius: 20px; padding: 4px 10px; font-size: 11px; font-weight: 600; }
+
+  /* CONTENT */
+  .content { width: 100%; max-width: 480px; padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; }
+
+  /* LOADING */
+  .loading-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; gap: 16px; color: var(--text2); }
+  .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ESTADO CARD */
+  .estado-card { border-radius: 14px; padding: 24px; text-align: center; }
+  .estado-card.valido { background: var(--green-bg); border: 2px solid var(--green-border); }
+  .estado-card.usado { background: var(--red-bg); border: 2px solid var(--red-border); }
+  .estado-card.autorizado { background: var(--accent-bg); border: 2px solid rgba(59,127,255,0.4); }
+  .estado-icon { font-size: 52px; margin-bottom: 10px; }
+  .estado-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .estado-title.verde { color: var(--green); }
+  .estado-title.rojo { color: var(--red); }
+  .estado-title.azul { color: var(--accent); }
+  .estado-sub { font-size: 13px; color: var(--text2); line-height: 1.5; }
+
+  /* DATOS DEL VIAJE */
+  .datos-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .datos-header { background: rgba(59,127,255,0.08); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; gap: 8px; }
+  .datos-header span { font-size: 13px; font-weight: 600; color: var(--accent); }
+  .datos-body { padding: 4px 0; }
+  .dato-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 16px; border-bottom: 1px solid var(--border); }
+  .dato-row:last-child { border-bottom: none; }
+  .dato-key { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
+  .dato-val { font-size: 14px; font-weight: 600; color: var(--text); text-align: right; max-width: 55%; }
+  .placa-big { font-family: monospace; font-size: 18px; font-weight: 700; background: var(--bg); border: 1px solid var(--border); padding: 3px 10px; border-radius: 5px; letter-spacing: 2px; }
+
+  /* PROTOCOLO CHECKLIST */
+  .checklist-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .checklist-title { font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+  .check-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
+  .check-item:last-child { border-bottom: none; }
+  .check-item input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--green); cursor: pointer; flex-shrink: 0; }
+  .check-item label { font-size: 13px; color: var(--text); cursor: pointer; line-height: 1.4; }
+  .check-item.checked label { color: var(--green); }
+
+  /* BOTÓN CONFIRMAR ESCANEO */
+  .btn-confirm { background: var(--green); border: none; border-radius: 10px; padding: 16px; font-size: 16px; font-weight: 700; color: #0a1a0f; cursor: pointer; transition: opacity 0.2s; width: 100%; letter-spacing: 0.5px; }
+  .btn-confirm:hover { opacity: 0.88; }
+  .btn-confirm:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  /* TIMER */
+  .timer-bar-wrap { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; }
+  .timer-label { font-size: 11px; color: var(--text2); margin-bottom: 8px; display: flex; justify-content: space-between; }
+  .timer-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .timer-fill { height: 100%; background: var(--amber); border-radius: 3px; transition: width 1s linear; }
+
+  /* FOOTER INFO */
+  .footer-note { font-size: 11px; color: var(--text3); text-align: center; line-height: 1.6; }
+
+  /* RESPONSIVE */
+  @media (max-width: 400px) {
+    .dato-val { font-size: 13px; }
+    .estado-icon { font-size: 44px; }
+    .estado-title { font-size: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-box">TC</div>
+    <div>
+      <div class="logo-text">INLOG S.A.</div>
+      <div class="logo-sub">Control de salidas</div>
+    </div>
+  </div>
+  <div class="badge-porteria">⬤ Portería</div>
+</div>
+
+<div class="content" id="content">
+  <div class="loading-screen" id="loading">
+    <div class="spinner"></div>
+    <p>Verificando despacho...</p>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://cnzldoetdehaflihrswi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuemxkb2V0ZGVoYWZsaWhyc3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNjIwNDIsImV4cCI6MjA5NTYzODA0Mn0.FltL4aNuTr0vAJcHtROeY5QyBB3WRb8UjHwGyFD-B5E';
+const TABLA = 'despachos_qr';
+
+let despachoData = null;
+let timerSegundos = 300; // 5 min para que TC llame
+let timerInterval = null;
+
+async function sbFetch(path, options={}) {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+    ...options,
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation',
+      ...options.headers
+    }
+  });
+  const txt = await res.text();
+  return txt ? JSON.parse(txt) : [];
+}
+
+function getParam(name) {
+  return new URLSearchParams(window.location.search).get(name);
+}
+
+async function init() {
+  const id = getParam('id');
+  if (!id) {
+    renderError('QR inválido', 'Este código QR no contiene información válida. Contacta a Torre de Control.');
+    return;
+  }
+
+  try {
+    const data = await sbFetch(`${TABLA}?despacho_id=eq.${id}`);
+    if (!data || data.length === 0) {
+      renderError('Despacho no encontrado', 'No se encontró este despacho en el sistema. Puede ser un QR desactualizado o incorrecto.');
+      return;
+    }
+
+    despachoData = data[0];
+
+    if (despachoData.qr_usado && despachoData.estado === 'autorizado') {
+      renderAutorizado(despachoData);
+      return;
+    }
+
+    if (despachoData.qr_usado) {
+      renderUsado(despachoData);
+      return;
+    }
+
+    if (despachoData.estado === 'autorizado') {
+      renderAutorizado(despachoData);
+      return;
+    }
+
+    // QR válido — registrar escaneo
+    await registrarEscaneo(id);
+    renderValido(despachoData);
+
+  } catch(e) {
+    console.error(e);
+    renderError('Error de conexión', 'No se pudo verificar el despacho. Revisa la conexión e inténtalo de nuevo.');
+  }
+}
+
+async function registrarEscaneo(id) {
+  try {
+    await sbFetch(`${TABLA}?despacho_id=eq.${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        qr_usado: true,
+        estado: 'en_porteria',
+        timestamp_escaneo: new Date().toISOString()
+      })
+    });
+  } catch(e) {
+    console.warn('No se pudo registrar escaneo:', e);
+  }
+}
+
+function renderValido(d) {
+  const content = document.getElementById('content');
+
+  // Verificar vencimiento hora máx
+  let alertaHora = '';
+  if (d.hora_max_salida) {
+    const [h, m] = d.hora_max_salida.split(':').map(Number);
+    const ahora = new Date();
+    const maxSalida = new Date();
+    maxSalida.setHours(h, m, 0, 0);
+    if (ahora > maxSalida) {
+      alertaHora = `<div style="background:var(--red-bg);border:1px solid var(--red-border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--red);display:flex;gap:8px;align-items:center;">
+        <span>⚠</span> <span>Hora máxima de salida (${d.hora_max_salida}) superada. Confirmar con Torre de Control.</span>
+      </div>`;
+    }
+  }
+
+  content.innerHTML = `
+    <div class="estado-card valido">
+      <div class="estado-icon">✅</div>
+      <div class="estado-title verde">Despacho verificado</div>
+      <div class="estado-sub">Alerta enviada a Torre de Control.<br>Espera la llamada de validación.</div>
+    </div>
+
+    ${alertaHora}
+
+    <div class="datos-card">
+      <div class="datos-header">
+        <span>📋 Datos del despacho</span>
+      </div>
+      <div class="datos-body">
+        <div class="dato-row">
+          <span class="dato-key">Placa</span>
+          <span class="dato-val"><span class="placa-big">${d.placa}</span></span>
+        </div>
+        <div class="dato-row">
+          <span class="dato-key">Conductor</span>
+          <span class="dato-val">${d.conductor}</span>
+        </div>
+        <div class="dato-row">
+          <span class="dato-key">Cliente</span>
+          <span class="dato-val">${d.cliente}</span>
+        </div>
+        <div class="dato-row">
+          <span class="dato-key">Origen</span>
+          <span class="dato-val">${d.origen || '—'}</span>
+        </div>
+        <div class="dato-row">
+          <span class="dato-key">Destino</span>
+          <span class="dato-val">${d.destino || '—'}</span>
+        </div>
+        <div class="dato-row">
+          <span class="dato-key">Custodia reacción</span>
+          <span class="dato-val">${d.custodia_reaccion || 'Sin custodia'}</span>
+        </div>
+        <div class="dato-row">
+          <span class="dato-key">Custodia avanzada</span>
+          <span class="dato-val">${d.custodia_avanzada || 'Sin custodia'}</span>
+        </div>
+        <div class="dato-row">
+          <span class="dato-key">Hora máx. salida</span>
+          <span class="dato-val">${d.hora_max_salida || '—'}</span>
+        </div>
+        ${d.observaciones ? `<div class="dato-row"><span class="dato-key">Obs.</span><span class="dato-val" style="font-size:12px;">${d.observaciones}</span></div>` : ''}
+      </div>
+    </div>
+
+    <div class="checklist-card">
+      <div class="checklist-title">Lista de verificación — Guardia</div>
+      <div class="check-item" id="chk-1-wrap">
+        <input type="checkbox" id="chk-1" onchange="verificarChecks()">
+        <label for="chk-1">Conductor se identifica: <strong>${d.conductor}</strong></label>
+      </div>
+      <div class="check-item" id="chk-2-wrap">
+        <input type="checkbox" id="chk-2" onchange="verificarChecks()">
+        <label for="chk-2">Placa del vehículo coincide: <strong>${d.placa}</strong></label>
+      </div>
+      <div class="check-item" id="chk-3-wrap">
+        <input type="checkbox" id="chk-3" onchange="verificarChecks()">
+        <label for="chk-3">Torre de Control autorizó la salida por teléfono</label>
+      </div>
+    </div>
+
+    <div class="timer-bar-wrap">
+      <div class="timer-label">
+        <span>⏱ Torre de Control llamará en los próximos 5 min</span>
+        <span id="timer-txt">5:00</span>
+      </div>
+      <div class="timer-bar"><div class="timer-fill" id="timer-fill" style="width:100%"></div></div>
+    </div>
+
+    <button class="btn-confirm" id="btn-confirm" disabled onclick="registrarSalidaFinal()">
+      ✓ Confirmar salida autorizada
+    </button>
+
+    <p class="footer-note">
+      ID de despacho: <strong>${d.despacho_id}</strong><br>
+      Escaneado: ${new Date().toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'})}
+    </p>
+  `;
+
+  iniciarTimer();
+}
+
+function verificarChecks() {
+  const checks = ['chk-1','chk-2','chk-3'];
+  const todos = checks.every(id => document.getElementById(id).checked);
+  document.getElementById('btn-confirm').disabled = !todos;
+
+  checks.forEach(id => {
+    const wrap = document.getElementById(id + '-wrap');
+    if (wrap) wrap.classList.toggle('checked', document.getElementById(id).checked);
+  });
+}
+
+async function registrarSalidaFinal() {
+  const btn = document.getElementById('btn-confirm');
+  btn.disabled = true;
+  btn.textContent = 'Registrando...';
+
+  try {
+    await sbFetch(`${TABLA}?despacho_id=eq.${despachoData.despacho_id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        estado: 'autorizado',
+        timestamp_autorizacion: new Date().toISOString()
+      })
+    });
+    renderAutorizado(despachoData);
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '✓ Confirmar salida autorizada';
+    alert('Error al registrar. Intenta de nuevo.');
+  }
+}
+
+function iniciarTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timerSegundos--;
+    const m = Math.floor(timerSegundos / 60);
+    const s = timerSegundos % 60;
+    const el = document.getElementById('timer-txt');
+    const fill = document.getElementById('timer-fill');
+    if (el) el.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+    if (fill) fill.style.width = Math.max(0, (timerSegundos/300)*100) + '%';
+    if (timerSegundos <= 0) {
+      clearInterval(timerInterval);
+      if (el) el.textContent = 'Contacta TC';
+      if (fill) { fill.style.background = 'var(--red)'; fill.style.width = '100%'; }
+    }
+  }, 1000);
+}
+
+function renderUsado(d) {
+  const escaneo = d.timestamp_escaneo ? new Date(d.timestamp_escaneo).toLocaleString('es-EC') : 'Desconocido';
+  document.getElementById('content').innerHTML = `
+    <div class="estado-card usado">
+      <div class="estado-icon">🚫</div>
+      <div class="estado-title rojo">QR ya utilizado</div>
+      <div class="estado-sub">Este código ya fue escaneado.<br>Contacta a Torre de Control si hay algún problema.</div>
+    </div>
+    <div class="datos-card">
+      <div class="datos-body">
+        <div class="dato-row"><span class="dato-key">Placa</span><span class="dato-val"><span class="placa-big">${d.placa}</span></span></div>
+        <div class="dato-row"><span class="dato-key">Conductor</span><span class="dato-val">${d.conductor}</span></div>
+        <div class="dato-row"><span class="dato-key">Escaneado</span><span class="dato-val" style="font-size:12px;">${escaneo}</span></div>
+        <div class="dato-row"><span class="dato-key">Estado</span><span class="dato-val" style="color:var(--amber);">${d.estado === 'autorizado' ? 'Salida autorizada' : 'En proceso'}</span></div>
+      </div>
+    </div>
+    <p class="footer-note">ID: ${d.despacho_id}</p>
+  `;
+}
+
+function renderAutorizado(d) {
+  const auth = d.timestamp_autorizacion ? new Date(d.timestamp_autorizacion).toLocaleString('es-EC') : '—';
+  document.getElementById('content').innerHTML = `
+    <div class="estado-card autorizado">
+      <div class="estado-icon">🟢</div>
+      <div class="estado-title azul">Salida autorizada</div>
+      <div class="estado-sub">Torre de Control autorizó este despacho.<br>El vehículo puede salir.</div>
+    </div>
+    <div class="datos-card">
+      <div class="datos-body">
+        <div class="dato-row"><span class="dato-key">Placa</span><span class="dato-val"><span class="placa-big">${d.placa}</span></span></div>
+        <div class="dato-row"><span class="dato-key">Conductor</span><span class="dato-val">${d.conductor}</span></div>
+        <div class="dato-row"><span class="dato-key">Cliente</span><span class="dato-val">${d.cliente}</span></div>
+        <div class="dato-row"><span class="dato-key">Destino</span><span class="dato-val">${d.destino||'—'}</span></div>
+        <div class="dato-row"><span class="dato-key">Autorizado</span><span class="dato-val" style="font-size:12px;">${auth}</span></div>
+      </div>
+    </div>
+    <p class="footer-note">ID: ${d.despacho_id}</p>
+  `;
+}
+
+function renderError(titulo, msg) {
+  document.getElementById('content').innerHTML = `
+    <div class="estado-card usado">
+      <div class="estado-icon">❌</div>
+      <div class="estado-title rojo">${titulo}</div>
+      <div class="estado-sub">${msg}</div>
+    </div>
+    <div style="text-align:center;">
+      <p style="font-size:13px;color:var(--text2);">Torre de Control: llama directamente si el vehículo está en portería.</p>
+    </div>
+  `;
+}
+
+init();
+</script>
+</body>
+</html>
