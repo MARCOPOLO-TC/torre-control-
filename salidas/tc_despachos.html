@@ -32,7 +32,8 @@
     --radius-sm: 6px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; min-height: 100vh; }
+  .app-content { visibility: hidden; height: 0; overflow: hidden; }
+  .app-content.visible { visibility: visible; height: auto; overflow: visible; }
 
   /* HEADER */
   .header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
@@ -43,7 +44,10 @@
   .header-right { display: flex; align-items: center; gap: 16px; }
   .clock { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--accent); letter-spacing: 1px; }
   .date-label { font-size: 11px; color: var(--text2); text-align: right; }
-  .operator-badge { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--text2); }
+  .operator-badge { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--text2); transition: color 0.4s, border-color 0.4s; }
+  .operator-badge.conn-ok   { color: var(--green);  border-color: var(--green-border); }
+  .operator-badge.conn-err  { color: var(--red);    border-color: var(--red-border); }
+  .operator-badge.conn-wait { color: var(--text2);  border-color: var(--border); }
 
   /* LAYOUT */
   .layout { display: grid; grid-template-columns: 1fr 380px; gap: 0; height: calc(100vh - 57px); }
@@ -152,17 +156,94 @@
   .sena-display p { font-size: 11px; color: var(--amber); font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
   .sena-display .word { font-size: 28px; font-weight: 700; color: var(--amber); letter-spacing: 3px; }
 
-  @media print {
+  /* LOGIN SCREEN */
+  .login-screen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: var(--bg); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+  .login-box { background: var(--card); border: 1px solid var(--border2); border-radius: 16px; padding: 36px 40px; width: 360px; max-width: 95vw; display: flex; flex-direction: column; gap: 18px; }
+  .login-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .login-logo .logo { width: 40px; height: 40px; font-size: 16px; }
+  .login-title { font-size: 18px; font-weight: 700; color: var(--text); }
+  .login-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .login-field { display: flex; flex-direction: column; gap: 6px; }
+  .login-field label { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.05em; }
+  .login-field input { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 13px; color: var(--text); font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.2s; }
+  .login-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+  .login-error { background: var(--red-bg); border: 1px solid var(--red-border); border-radius: var(--radius-sm); padding: 9px 13px; font-size: 12px; color: var(--red); display: none; }
+  .login-user-badge { background: var(--accent-bg); border: 1px solid var(--accent-border); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--accent); font-weight: 600; cursor: pointer; }
+  .login-user-badge:hover { opacity: 0.8; }
+
+  /* OPERADORES EN ADMIN */
+  .op-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+  .op-form-grid input { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 11px; color: var(--text); font-size: 13px; font-family: inherit; outline: none; }
+  .op-form-grid input:focus { border-color: var(--accent); }
+  .op-role-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; border: 1px solid; }
+  .op-role-badge.supervisor { background: rgba(59,127,255,0.12); color: var(--accent); border-color: var(--accent-border); }
+  .op-role-badge.operador { background: var(--green-bg); color: var(--green); border-color: var(--green-border); }
+
     body { background: white; color: black; }
     .layout { display: block; }
     .main-panel, .header { display: none; }
     .side-panel { border: none; padding: 0; }
     #qr-canvas { margin: 0 auto; }
   }
+
+  /* MODAL ADMINISTRACIÓN */
+  .admin-btn { background: var(--card); border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 5px 12px; font-size: 12px; color: var(--text2); cursor: pointer; transition: all 0.2s; display:flex;align-items:center;gap:6px; }
+  .admin-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .admin-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 300; align-items: center; justify-content: center; }
+  .admin-overlay.open { display: flex; }
+  .admin-modal { background: var(--card); border: 1px solid var(--border2); border-radius: 14px; padding: 28px; width: 700px; max-width: 96vw; max-height: 88vh; overflow-y: auto; }
+  .admin-modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 20px; color: var(--text); }
+  .admin-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .admin-tab { background: transparent; border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 7px 16px; font-size: 13px; color: var(--text2); cursor: pointer; transition: all 0.2s; }
+  .admin-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .admin-section { display: none; }
+  .admin-section.active { display: block; }
+  .admin-add-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .admin-add-row input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; color: var(--text); font-size: 13px; font-family: inherit; outline: none; }
+  .admin-add-row input:focus { border-color: var(--accent); }
+  .admin-list { display: flex; flex-direction: column; gap: 6px; }
+  .admin-item { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .admin-item-name { font-size: 13px; color: var(--text); font-weight: 500; flex: 1; }
+  .admin-item-badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 600; }
+  .admin-item-badge.activo { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .admin-item-badge.inactivo { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+  .admin-item-actions { display: flex; gap: 6px; }
+  .admin-item-actions button { background: transparent; border: 1px solid var(--border2); border-radius: 4px; padding: 3px 8px; font-size: 11px; cursor: pointer; transition: all 0.2s; color: var(--text2); }
+  .admin-item-actions button:hover { opacity: 0.8; }
+  .btn-toggle-on { border-color: var(--red-border) !important; color: var(--red) !important; }
+  .btn-toggle-off { border-color: var(--green-border) !important; color: var(--green) !important; }
+  .btn-del { border-color: var(--red-border) !important; color: var(--red) !important; }
+  .admin-empty { text-align: center; padding: 20px; color: var(--text3); font-size: 13px; }
+  .admin-close { background: transparent; border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 8px 18px; font-size: 13px; color: var(--text2); cursor: pointer; margin-top: 20px; }
+  .admin-close:hover { border-color: var(--accent); color: var(--accent); }
 </style>
 </head>
 <body>
 
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="logo">TC</div>
+      <div>
+        <div class="login-title">Control de Despachos</div>
+        <div class="login-sub">Torre de Control · INLOG S.A.</div>
+      </div>
+    </div>
+    <div class="login-field">
+      <label>Usuario</label>
+      <input type="text" id="login-user" placeholder="ej. gcastro" autocomplete="username" onkeydown="if(event.key==='Enter') document.getElementById('login-pin').focus()">
+    </div>
+    <div class="login-field">
+      <label>PIN</label>
+      <input type="password" id="login-pin" placeholder="••••" maxlength="8" autocomplete="current-password" onkeydown="if(event.key==='Enter') hacerLogin()">
+    </div>
+    <div class="login-error" id="login-error">Usuario o PIN incorrecto.</div>
+    <button class="btn-primary" onclick="hacerLogin()">Ingresar</button>
+  </div>
+</div>
+
+<div class="app-content" id="app-content">
 <div class="header">
   <div class="header-left">
     <div class="logo">TC</div>
@@ -176,7 +257,9 @@
       <div class="clock" id="clock">--:--:--</div>
       <div class="date-label" id="date-label">--</div>
     </div>
-    <div class="operator-badge" id="op-badge">⬤ &nbsp;En línea</div>
+    <div class="operator-badge" id="op-badge" title="Estado de conexión con Supabase">⬤ &nbsp;<span id="conn-label">Conectando...</span></div>
+    <span class="login-user-badge" id="user-badge" onclick="cerrarSesion()" title="Clic para cerrar sesión">👤 <span id="user-nombre">—</span></span>
+    <button class="admin-btn" onclick="abrirAdmin()">⚙ Administrar</button>
   </div>
 </div>
 
@@ -236,24 +319,13 @@
           <div class="form-group">
             <label>Cliente *</label>
             <select id="f-cliente">
-              <option value="">Seleccionar...</option>
-              <option>LETERAGO</option>
-              <option>FARMAYALA</option>
-              <option>DINADEC</option>
-              <option>SIEMENS</option>
-              <option>PMI GYE</option>
-              <option>LINDE</option>
-              <option>OTRO</option>
+              <option value="">Cargando...</option>
             </select>
           </div>
           <div class="form-group">
             <label>Centro de distribución origen</label>
             <select id="f-origen">
-              <option value="">Seleccionar...</option>
-              <option>CD Pifo</option>
-              <option>CD Perimetral</option>
-              <option>CD Cuenca</option>
-              <option>CD Manabí</option>
+              <option value="">Cargando...</option>
             </select>
           </div>
           <div class="form-group">
@@ -300,7 +372,20 @@
 
     <!-- TABLA DE DESPACHOS -->
     <div>
-      <div class="section-title">Despachos del día</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div class="section-title" style="margin-bottom:0;">Despachos del día</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <select id="export-rango" style="background:var(--card);border:1px solid var(--border2);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--text2);outline:none;cursor:pointer;">
+            <option value="hoy">Solo hoy</option>
+            <option value="semana">Últimos 7 días</option>
+            <option value="mes">Último mes</option>
+            <option value="todo">Todo el historial</option>
+          </select>
+          <button class="btn-secondary" onclick="exportarExcel()" style="display:flex;align-items:center;gap:6px;font-size:12px;padding:6px 12px;">
+            ⬇ Exportar Excel
+          </button>
+        </div>
+      </div>
       <div class="form-card" style="padding:0;overflow:hidden;">
         <div id="tabla-container">
           <div class="empty-state">
@@ -406,6 +491,65 @@ let senaDelDia = '';
 let pollingInterval = null;
 
 // ═══════════════════════════════════════════
+// SESIÓN DE USUARIO
+// ═══════════════════════════════════════════
+let usuarioActual = null; // { id, nombre, usuario, rol }
+
+async function hacerLogin() {
+  const user = document.getElementById('login-user').value.trim().toLowerCase();
+  const pin  = document.getElementById('login-pin').value.trim();
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  if (!user || !pin) { errEl.textContent = 'Ingresa usuario y PIN.'; errEl.style.display = 'block'; return; }
+
+  try {
+    // Buscar en Supabase — PIN se compara en texto plano (simple, sin bcrypt)
+    const data = await sbFetch(`operadores_despachos?usuario=eq.${encodeURIComponent(user)}&pin=eq.${encodeURIComponent(pin)}&activo=eq.true&select=id,nombre,usuario,rol`);
+    if (!data.length) {
+      errEl.textContent = 'Usuario o PIN incorrecto.';
+      errEl.style.display = 'block';
+      document.getElementById('login-pin').value = '';
+      return;
+    }
+    usuarioActual = data[0];
+    document.getElementById('login-screen').style.display = 'none';
+    document.body.classList.remove('login-active');
+    document.documentElement.style.overflow = '';
+    document.documentElement.style.height = '';
+    window.scrollTo(0, 0);
+    document.getElementById('app-content').classList.add('visible');
+    document.getElementById('user-nombre').textContent = usuarioActual.nombre.split(' ')[0];
+    // Mostrar tab Operadores solo a supervisores
+    if (usuarioActual.rol === 'supervisor') {
+      document.getElementById('tab-operadores').style.display = '';
+    }
+    // Cargar datos operacionales
+    cargarDespachos();
+    cargarCatalogos();
+    // Registrar ingreso en consola
+    console.log(`[LOGIN] ${usuarioActual.nombre} (${usuarioActual.rol}) — ${new Date().toLocaleString('es-EC')}`);
+  } catch(e) {
+    errEl.textContent = 'Error de conexión. Intenta nuevamente.';
+    errEl.style.display = 'block';
+    console.error(e);
+  }
+}
+
+function cerrarSesion() {
+  if (!confirm('¿Cerrar sesión de ' + (usuarioActual?.nombre || '') + '?')) return;
+  usuarioActual = null;
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pin').value = '';
+  document.getElementById('login-error').style.display = 'none';
+  document.getElementById('user-nombre').textContent = '—';
+  document.getElementById('tab-operadores').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.body.classList.add('login-active');
+  document.getElementById('app-content').classList.remove('visible');
+}
+
+// ═══════════════════════════════════════════
 // RELOJ
 // ═══════════════════════════════════════════
 function actualizarReloj() {
@@ -421,9 +565,10 @@ actualizarReloj();
 // ═══════════════════════════════════════════
 const PALABRAS = ['AGUILA','CONDOR','JAGUAR','TITAN','FALCÓN','NEXUS','OMEGA','DELTA','SIGMA','ATLAS','COBRA','PUMA','ORION','VEGA','ZENIT'];
 function generarSena() {
-  const w1 = PALABRAS[Math.floor(Math.random()*PALABRAS.length)];
-  const w2 = PALABRAS[Math.floor(Math.random()*PALABRAS.length)];
-  senaDelDia = w1 + '-' + w2;
+  const idx1 = Math.floor(Math.random()*PALABRAS.length);
+  let idx2;
+  do { idx2 = Math.floor(Math.random()*PALABRAS.length); } while (idx2 === idx1);
+  senaDelDia = PALABRAS[idx1] + '-' + PALABRAS[idx2];
   document.getElementById('sena-valor').textContent = senaDelDia;
   document.getElementById('modal-sena').textContent = senaDelDia;
   localStorage.setItem('inlog_sena_' + fechaHoy(), senaDelDia);
@@ -465,6 +610,31 @@ async function sbFetch(path, options={}) {
 }
 
 // ═══════════════════════════════════════════
+// ESTADO DE CONEXIÓN SUPABASE
+// ═══════════════════════════════════════════
+function setEstadoConexion(estado) {
+  // estado: 'ok' | 'err' | 'wait'
+  const badge = document.getElementById('op-badge');
+  const label = document.getElementById('conn-label');
+  if (!badge || !label) return;
+  badge.classList.remove('conn-ok', 'conn-err', 'conn-wait');
+  if (estado === 'ok') {
+    badge.classList.add('conn-ok');
+    label.textContent = 'En línea';
+  } else if (estado === 'err') {
+    badge.classList.add('conn-err');
+    label.textContent = 'Sin conexión';
+  } else {
+    badge.classList.add('conn-wait');
+    label.textContent = 'Conectando...';
+  }
+}
+
+// Detectar pérdida/recuperación de red del navegador
+window.addEventListener('online',  () => cargarDespachos());
+window.addEventListener('offline', () => setEstadoConexion('err'));
+
+// ═══════════════════════════════════════════
 // CARGAR DESPACHOS DEL DÍA
 // ═══════════════════════════════════════════
 async function cargarDespachos() {
@@ -475,8 +645,10 @@ async function cargarDespachos() {
     renderTabla();
     actualizarStats();
     verificarAlertas();
+    setEstadoConexion('ok');
   } catch(e) {
     console.error('Error cargando despachos:', e);
+    setEstadoConexion('err');
   }
 }
 
@@ -578,7 +750,7 @@ CREATE POLICY "acceso_despachos" ON despachos_qr FOR ALL USING (true) WITH CHECK
 // ═══════════════════════════════════════════
 // GENERAR QR
 // ═══════════════════════════════════════════
-const BASE_URL = window.location.href.replace('tc_despachos.html', 'guardia_validacion.html');
+const BASE_URL = 'https://marcopolo-tc.github.io/torre-control-/salidas/guardia_validacion.html';
 
 function mostrarQR(despacho) {
   document.getElementById('qr-placeholder').style.display = 'none';
@@ -723,7 +895,7 @@ async function confirmarAutorizacion() {
       body: JSON.stringify({
         estado: 'autorizado',
         timestamp_autorizacion: new Date().toISOString(),
-        operador_autorizo: 'Torre de Control'
+        operador_autorizo: usuarioActual ? usuarioActual.nombre : 'Torre de Control'
       })
     });
     cerrarModal();
@@ -739,7 +911,9 @@ async function confirmarAutorizacion() {
 // ═══════════════════════════════════════════
 function limpiarFormulario() {
   ['f-placa','f-conductor','f-celular','f-destino','f-obs'].forEach(id => document.getElementById(id).value='');
-  ['f-cliente','f-origen','f-custodia-reaccion','f-custodia-avanzada'].forEach(id => document.getElementById(id).selectedIndex=0);
+  ['f-custodia-reaccion','f-custodia-avanzada'].forEach(id => document.getElementById(id).selectedIndex=0);
+document.getElementById('f-cliente').value='';
+document.getElementById('f-origen').value='';
   document.getElementById('f-hora').value='';
 }
 
@@ -759,8 +933,222 @@ console.log('═══ SQL para crear tabla en Supabase ═══');
 console.log(getSQLCreacion());
 console.log('═══════════════════════════════════════');
 
+
 // ═══════════════════════════════════════════
-// PING ANTI-SUSPENSIÓN SUPABASE
+// CARGA DINÁMICA DE CLIENTES Y CDs
+// ═══════════════════════════════════════════
+let clientesData = [];
+let cdsData = [];
+
+async function cargarCatalogos() {
+  try {
+    clientesData = await sbFetch('clientes_inlog?activo=eq.true&order=nombre.asc');
+    cdsData = await sbFetch('centros_distribucion?activo=eq.true&order=nombre.asc');
+    poblarSelect('f-cliente', clientesData, 'Seleccionar...');
+    poblarSelect('f-origen', cdsData, 'Seleccionar...');
+  } catch(e) {
+    console.error('Error cargando catálogos:', e);
+  }
+}
+
+function poblarSelect(id, data, placeholder) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">' + placeholder + '</option>';
+  data.forEach(item => {
+    const opt = document.createElement('option');
+    opt.value = item.nombre;
+    opt.textContent = item.nombre;
+    sel.appendChild(opt);
+  });
+}
+
+// ═══════════════════════════════════════════
+// PANEL DE ADMINISTRACIÓN
+// ═══════════════════════════════════════════
+let adminTabActual = 'clientes';
+
+function abrirAdmin() {
+  document.getElementById('admin-overlay').classList.add('open');
+  cargarAdminClientes();
+  cargarAdminCDs();
+  if (usuarioActual?.rol === 'supervisor') cargarAdminOperadores();
+}
+
+function cerrarAdmin() {
+  document.getElementById('admin-overlay').classList.remove('open');
+  // Recargar catálogos por si hubo cambios
+  cargarCatalogos();
+}
+
+function switchAdminTab(tab) {
+  adminTabActual = tab;
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('admin-' + tab).classList.add('active');
+  if (tab === 'operadores') cargarAdminOperadores();
+}
+
+// --- CLIENTES ---
+async function cargarAdminClientes() {
+  try {
+    const data = await sbFetch('clientes_inlog?order=nombre.asc');
+    const lista = document.getElementById('lista-clientes');
+    if (!data.length) { lista.innerHTML = '<div class="admin-empty">No hay clientes registrados.</div>'; return; }
+    lista.innerHTML = data.map(c => `
+      <div class="admin-item">
+        <span class="admin-item-name">${c.nombre}</span>
+        <span class="admin-item-badge ${c.activo ? 'activo' : 'inactivo'}">${c.activo ? 'Activo' : 'Inactivo'}</span>
+        <div class="admin-item-actions">
+          <button class="${c.activo ? 'btn-toggle-on' : 'btn-toggle-off'}" onclick="toggleCliente(${c.id}, ${c.activo})">${c.activo ? 'Desactivar' : 'Activar'}</button>
+          <button class="btn-del" onclick="eliminarCliente(${c.id}, '${c.nombre}')">Eliminar</button>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) { toast('Error cargando clientes', 'err'); }
+}
+
+async function agregarCliente() {
+  const input = document.getElementById('nuevo-cliente');
+  const nombre = input.value.trim().toUpperCase();
+  if (!nombre) return;
+  try {
+    await sbFetch('clientes_inlog', { method: 'POST', body: JSON.stringify({ nombre }) });
+    input.value = '';
+    await cargarAdminClientes();
+    toast('Cliente agregado: ' + nombre, 'ok');
+  } catch(e) { toast('Error: puede que ya exista ese cliente.', 'err'); }
+}
+
+async function toggleCliente(id, activo) {
+  try {
+    await sbFetch('clientes_inlog?id=eq.' + id, { method: 'PATCH', body: JSON.stringify({ activo: !activo }) });
+    await cargarAdminClientes();
+  } catch(e) { toast('Error al actualizar', 'err'); }
+}
+
+async function eliminarCliente(id, nombre) {
+  if (!confirm('¿Eliminar el cliente ' + nombre + '? Esta acción no se puede deshacer.')) return;
+  try {
+    await sbFetch('clientes_inlog?id=eq.' + id, { method: 'DELETE' });
+    await cargarAdminClientes();
+    toast('Cliente eliminado: ' + nombre, 'ok');
+  } catch(e) { toast('Error al eliminar', 'err'); }
+}
+
+// --- CENTROS DE DISTRIBUCIÓN ---
+async function cargarAdminCDs() {
+  try {
+    const data = await sbFetch('centros_distribucion?order=nombre.asc');
+    const lista = document.getElementById('lista-cds');
+    if (!data.length) { lista.innerHTML = '<div class="admin-empty">No hay centros registrados.</div>'; return; }
+    lista.innerHTML = data.map(c => `
+      <div class="admin-item">
+        <span class="admin-item-name">${c.nombre}</span>
+        <span class="admin-item-badge ${c.activo ? 'activo' : 'inactivo'}">${c.activo ? 'Activo' : 'Inactivo'}</span>
+        <div class="admin-item-actions">
+          <button class="${c.activo ? 'btn-toggle-on' : 'btn-toggle-off'}" onclick="toggleCD(${c.id}, ${c.activo})">${c.activo ? 'Desactivar' : 'Activar'}</button>
+          <button class="btn-del" onclick="eliminarCD(${c.id}, '${c.nombre}')">Eliminar</button>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) { toast('Error cargando centros', 'err'); }
+}
+
+async function agregarCD() {
+  const input = document.getElementById('nuevo-cd');
+  const nombre = input.value.trim();
+  if (!nombre) return;
+  try {
+    await sbFetch('centros_distribucion', { method: 'POST', body: JSON.stringify({ nombre }) });
+    input.value = '';
+    await cargarAdminCDs();
+    toast('Centro agregado: ' + nombre, 'ok');
+  } catch(e) { toast('Error: puede que ya exista ese centro.', 'err'); }
+}
+
+async function toggleCD(id, activo) {
+  try {
+    await sbFetch('centros_distribucion?id=eq.' + id, { method: 'PATCH', body: JSON.stringify({ activo: !activo }) });
+    await cargarAdminCDs();
+  } catch(e) { toast('Error al actualizar', 'err'); }
+}
+
+async function eliminarCD(id, nombre) {
+  if (!confirm('¿Eliminar ' + nombre + '? Esta acción no se puede deshacer.')) return;
+  try {
+    await sbFetch('centros_distribucion?id=eq.' + id, { method: 'DELETE' });
+    await cargarAdminCDs();
+    toast('Centro eliminado: ' + nombre, 'ok');
+  } catch(e) { toast('Error al eliminar', 'err'); }
+}
+
+// --- OPERADORES ---
+async function cargarAdminOperadores() {
+  try {
+    const data = await sbFetch('operadores_despachos?order=nombre.asc&select=id,nombre,usuario,rol,activo');
+    const lista = document.getElementById('lista-operadores');
+    if (!data.length) { lista.innerHTML = '<div class="admin-empty">No hay operadores registrados.</div>'; return; }
+    lista.innerHTML = data.map(o => `
+      <div class="admin-item">
+        <span class="admin-item-name">${o.nombre}</span>
+        <span style="font-size:11px;color:var(--text2);margin-right:4px;">@${o.usuario}</span>
+        <span class="op-role-badge ${o.rol}">${o.rol}</span>
+        <span class="admin-item-badge ${o.activo ? 'activo' : 'inactivo'}" style="margin-left:4px;">${o.activo ? 'Activo' : 'Inactivo'}</span>
+        <div class="admin-item-actions">
+          <button class="${o.activo ? 'btn-toggle-on' : 'btn-toggle-off'}" onclick="toggleOperador(${o.id},${o.activo})">${o.activo ? 'Desactivar' : 'Activar'}</button>
+          <button onclick="resetPinOperador(${o.id},'${o.nombre.replace(/'/g,"\\'")}')">Reset PIN</button>
+          <button class="btn-del" onclick="eliminarOperador(${o.id},'${o.nombre.replace(/'/g,"\\'")}')">Eliminar</button>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) { toast('Error cargando operadores', 'err'); }
+}
+
+async function agregarOperador() {
+  const nombre = document.getElementById('new-op-nombre').value.trim();
+  const usuario = document.getElementById('new-op-user').value.trim().toLowerCase();
+  const pin    = document.getElementById('new-op-pin').value.trim();
+  const rol    = document.getElementById('new-op-rol').value;
+  if (!nombre || !usuario || !pin) { toast('Completa nombre, usuario y PIN', 'err'); return; }
+  if (pin.length < 4) { toast('El PIN debe tener mínimo 4 caracteres', 'err'); return; }
+  try {
+    await sbFetch('operadores_despachos', { method: 'POST', body: JSON.stringify({ nombre, usuario, pin, rol, activo: true }) });
+    document.getElementById('new-op-nombre').value = '';
+    document.getElementById('new-op-user').value = '';
+    document.getElementById('new-op-pin').value = '';
+    await cargarAdminOperadores();
+    toast('Operador agregado: ' + nombre, 'ok');
+  } catch(e) { toast('Error: el usuario ya puede existir. ' + e.message, 'err'); }
+}
+
+async function toggleOperador(id, activo) {
+  try {
+    await sbFetch('operadores_despachos?id=eq.' + id, { method: 'PATCH', body: JSON.stringify({ activo: !activo }) });
+    await cargarAdminOperadores();
+  } catch(e) { toast('Error al actualizar', 'err'); }
+}
+
+async function resetPinOperador(id, nombre) {
+  const nuevo = prompt(`Nuevo PIN para ${nombre}:`);
+  if (!nuevo || nuevo.length < 4) { toast('PIN inválido (mín. 4 caracteres)', 'err'); return; }
+  try {
+    await sbFetch('operadores_despachos?id=eq.' + id, { method: 'PATCH', body: JSON.stringify({ pin: nuevo }) });
+    toast('PIN actualizado para ' + nombre, 'ok');
+  } catch(e) { toast('Error al actualizar PIN', 'err'); }
+}
+
+async function eliminarOperador(id, nombre) {
+  if (!confirm('¿Eliminar operador ' + nombre + '? Esta acción no se puede deshacer.')) return;
+  try {
+    await sbFetch('operadores_despachos?id=eq.' + id, { method: 'DELETE' });
+    await cargarAdminOperadores();
+    toast('Operador eliminado: ' + nombre, 'ok');
+  } catch(e) { toast('Error al eliminar', 'err'); }
+}
+
+
 // Hace una consulta mínima cada 4 días para
 // mantener el proyecto activo (límite: 7 días)
 // ═══════════════════════════════════════════
@@ -788,13 +1176,160 @@ function iniciarPingAutomatico() {
 }
 
 // ═══════════════════════════════════════════
+// EXPORTAR A EXCEL
+// ═══════════════════════════════════════════
+async function exportarExcel() {
+  const rango = document.getElementById('export-rango').value;
+  const btn = document.querySelector('[onclick="exportarExcel()"]');
+  btn.textContent = '⏳ Exportando...';
+  btn.disabled = true;
+
+  try {
+    // Calcular fecha desde según rango
+    let filtro = '';
+    const hoy = new Date();
+    if (rango === 'hoy') {
+      filtro = `&fecha_despacho=eq.${fechaHoy()}`;
+    } else if (rango === 'semana') {
+      const desde = new Date(hoy); desde.setDate(hoy.getDate() - 7);
+      filtro = `&fecha_despacho=gte.${desde.toISOString().slice(0,10)}`;
+    } else if (rango === 'mes') {
+      const desde = new Date(hoy); desde.setDate(hoy.getDate() - 30);
+      filtro = `&fecha_despacho=gte.${desde.toISOString().slice(0,10)}`;
+    }
+    // 'todo' = sin filtro de fecha
+
+    const data = await sbFetch(`${TABLA}?order=fecha_despacho.desc,created_at.desc${filtro}&limit=1000`);
+
+    if (!data.length) {
+      toast('No hay despachos para exportar en el rango seleccionado.', 'err');
+      return;
+    }
+
+    // Construir CSV con BOM para que Excel lo abra correctamente con tildes
+    const cols = [
+      { key: 'fecha_despacho',         label: 'Fecha' },
+      { key: 'despacho_id',            label: 'ID Despacho' },
+      { key: 'placa',                  label: 'Placa' },
+      { key: 'conductor',              label: 'Conductor' },
+      { key: 'celular',                label: 'Celular' },
+      { key: 'cliente',                label: 'Cliente' },
+      { key: 'origen',                 label: 'Origen' },
+      { key: 'destino',                label: 'Destino' },
+      { key: 'custodia_reaccion',      label: 'Custodia Reacción' },
+      { key: 'custodia_avanzada',      label: 'Custodia Avanzada' },
+      { key: 'hora_max_salida',        label: 'Hora Máx. Salida' },
+      { key: 'sena_dia',               label: 'Santo y Seña' },
+      { key: 'estado',                 label: 'Estado' },
+      { key: 'timestamp_escaneo',      label: 'Timestamp Escaneo' },
+      { key: 'timestamp_autorizacion', label: 'Timestamp Autorización' },
+      { key: 'operador_autorizo',      label: 'Operador Autorizó' },
+      { key: 'observaciones',          label: 'Observaciones' },
+    ];
+
+    const encabezado = cols.map(c => `"${c.label}"`).join(';');
+    const filas = data.map(d =>
+      cols.map(c => {
+        let val = d[c.key] || '';
+        // Formatear timestamps
+        if ((c.key === 'timestamp_escaneo' || c.key === 'timestamp_autorizacion') && val) {
+          val = new Date(val).toLocaleString('es-EC', {hour12: false});
+        }
+        // Escapar comillas dobles
+        val = String(val).replace(/"/g, '""');
+        return `"${val}"`;
+      }).join(';')
+    );
+
+    const csv = '\uFEFF' + [encabezado, ...filas].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+
+    // Nombre del archivo según rango
+    const nombres = { hoy: 'hoy', semana: 'ultimos7dias', mes: 'ultimo_mes', todo: 'historial_completo' };
+    a.href = url;
+    a.download = `INLOG_Despachos_${nombres[rango]}_${fechaHoy()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast(`✓ Exportados ${data.length} registros a Excel`, 'ok');
+  } catch(e) {
+    toast('Error al exportar: ' + e.message, 'err');
+  } finally {
+    btn.innerHTML = '⬇ Exportar Excel';
+    btn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
 cargarSena();
-cargarDespachos();
+setEstadoConexion('wait');
+// Los datos se cargan después del login
+// cargarDespachos() y cargarCatalogos() se llaman post-login via hacerLogin()
 iniciarPingAutomatico();
 // Polling cada 15 segundos para detectar escaneos de guardias
-pollingInterval = setInterval(cargarDespachos, 15000);
+pollingInterval = setInterval(() => { if (usuarioActual) cargarDespachos(); }, 15000);
 </script>
+
+<!-- MODAL ADMINISTRACIÓN -->
+<div class="admin-overlay" id="admin-overlay">
+  <div class="admin-modal">
+    <h2>⚙ Administración del sistema</h2>
+    <div class="admin-tabs">
+      <button class="admin-tab active" onclick="switchAdminTab('clientes')">Clientes</button>
+      <button class="admin-tab" onclick="switchAdminTab('cds')">Centros de distribución</button>
+      <button class="admin-tab" id="tab-operadores" onclick="switchAdminTab('operadores')" style="display:none;">Operadores</button>
+    </div>
+
+    <!-- CLIENTES -->
+    <div class="admin-section active" id="admin-clientes">
+      <div class="admin-add-row">
+        <input type="text" id="nuevo-cliente" placeholder="Nombre del nuevo cliente..." onkeydown="if(event.key==='Enter') agregarCliente()">
+        <button class="btn-primary" style="width:auto;padding:8px 16px;" onclick="agregarCliente()">+ Agregar</button>
+      </div>
+      <div class="admin-list" id="lista-clientes">
+        <div class="admin-empty">Cargando...</div>
+      </div>
+    </div>
+
+    <!-- CENTROS DE DISTRIBUCIÓN -->
+    <div class="admin-section" id="admin-cds">
+      <div class="admin-add-row">
+        <input type="text" id="nuevo-cd" placeholder="Nombre del nuevo centro de distribución..." onkeydown="if(event.key==='Enter') agregarCD()">
+        <button class="btn-primary" style="width:auto;padding:8px 16px;" onclick="agregarCD()">+ Agregar</button>
+      </div>
+      <div class="admin-list" id="lista-cds">
+        <div class="admin-empty">Cargando...</div>
+      </div>
+    </div>
+
+    <!-- OPERADORES -->
+    <div class="admin-section" id="admin-operadores">
+      <div class="op-form-grid">
+        <input type="text" id="new-op-nombre" placeholder="Nombre completo">
+        <input type="text" id="new-op-user" placeholder="Usuario (ej. gcastro)">
+        <input type="password" id="new-op-pin" placeholder="PIN (4-8 dígitos)" maxlength="8">
+        <select id="new-op-rol" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 11px;color:var(--text);font-size:13px;font-family:inherit;outline:none;">
+          <option value="operador">Operador</option>
+          <option value="supervisor">Supervisor</option>
+        </select>
+      </div>
+      <div style="margin-bottom:14px;">
+        <button class="btn-primary" style="width:auto;padding:8px 18px;" onclick="agregarOperador()">+ Agregar operador</button>
+      </div>
+      <div class="admin-list" id="lista-operadores">
+        <div class="admin-empty">Cargando...</div>
+      </div>
+    </div>
+
+    <button class="admin-close" onclick="cerrarAdmin()">Cerrar</button>
+  </div>
+</div>
+</div><!-- /app-content -->
 </body>
 </html>
