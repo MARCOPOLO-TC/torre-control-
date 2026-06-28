@@ -32,8 +32,8 @@
     --radius-sm: 6px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  .app-content { visibility: hidden; height: 0; overflow: hidden; }
-  .app-content.visible { visibility: visible; height: auto; overflow: visible; }
+  #app-content { display: none; min-height: 100vh; }
+  #app-content.visible { display: block; }
 
   /* HEADER */
   .header { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
@@ -157,7 +157,7 @@
   .sena-display .word { font-size: 28px; font-weight: 700; color: var(--amber); letter-spacing: 3px; }
 
   /* LOGIN SCREEN */
-  .login-screen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100vw; height: 100vh; background: var(--bg); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+  .login-screen { width: 100%; min-height: 100vh; background: var(--bg); display: flex; align-items: center; justify-content: center; }
   .login-box { background: var(--card); border: 1px solid var(--border2); border-radius: 16px; padding: 36px 40px; width: 360px; max-width: 95vw; display: flex; flex-direction: column; gap: 18px; }
   .login-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
   .login-logo .logo { width: 40px; height: 40px; font-size: 16px; }
