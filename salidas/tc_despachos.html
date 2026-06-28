@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Control de Despachos — Torre de Control INLOG</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --bg: #0f1117;
@@ -171,7 +172,14 @@
   .login-user-badge { background: var(--accent-bg); border: 1px solid var(--accent-border); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--accent); font-weight: 600; cursor: pointer; }
   .login-user-badge:hover { opacity: 0.8; }
 
-  /* OPERADORES EN ADMIN */
+  /* PRESENCIA Y BLOQUEO */
+  .presencia-bar { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text2); }
+  .presencia-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; animation: pulse 2s infinite; }
+  .presencia-nombre { background: var(--green-bg); border: 1px solid var(--green-border); border-radius: 20px; padding: 2px 8px; font-size: 11px; color: var(--green); font-weight: 600; }
+  .presencia-nombre.yo { background: var(--accent-bg); border-color: var(--accent-border); color: var(--accent); }
+  .procesando-badge { background: var(--amber-bg); border: 1px solid var(--amber-border); border-radius: 4px; padding: 2px 7px; font-size: 10px; color: var(--amber); font-weight: 600; }
+  .btn-auth:disabled { opacity: 0.4; cursor: not-allowed; }
+
   .op-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
   .op-form-grid input { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 11px; color: var(--text); font-size: 13px; font-family: inherit; outline: none; }
   .op-form-grid input:focus { border-color: var(--accent); }
@@ -267,6 +275,13 @@
 <div class="layout">
   <!-- PANEL PRINCIPAL -->
   <div class="main-panel">
+
+    <!-- PRESENCIA OPERADORES -->
+    <div class="presencia-bar" id="presencia-bar" style="padding:4px 0;">
+      <span class="presencia-dot"></span>
+      <span style="color:var(--text3);">Operadores activos:</span>
+      <span id="presencia-lista">—</span>
+    </div>
 
     <!-- STATS -->
     <div class="stats-row">
@@ -528,6 +543,7 @@ async function hacerLogin() {
     // Cargar datos operacionales
     cargarDespachos();
     cargarCatalogos();
+    iniciarRealtime();
     // Registrar ingreso en consola
     console.log(`[LOGIN] ${usuarioActual.nombre} (${usuarioActual.rol}) — ${new Date().toLocaleString('es-EC')}`);
   } catch(e) {
@@ -548,6 +564,7 @@ function cerrarSesion() {
   document.getElementById('login-screen').style.display = 'flex';
   document.body.classList.add('login-active');
   document.getElementById('app-content').classList.remove('visible');
+  detenerRealtime();
 }
 
 // ═══════════════════════════════════════════
@@ -811,7 +828,9 @@ function renderTabla() {
     const acciones = d.estado === 'autorizado'
       ? `<span style="font-size:11px;color:var(--text3);">✓ Salida registrada</span>`
       : d.estado === 'en_porteria'
-      ? `<button class="btn-auth" onclick="abrirModalAuth('${d.despacho_id}')">🔐 Autorizar</button>`
+      ? (d.procesando_por && d.procesando_por !== usuarioActual?.nombre
+          ? `<span class="procesando-badge">🔒 ${d.procesando_por.split(' ')[0]}</span>`
+          : `<button class="btn-auth" onclick="abrirModalAuth('${d.despacho_id}')">🔐 Autorizar</button>`)
       : `<button class="btn-qr" onclick="mostrarQRExistente('${d.despacho_id}')">▣ Ver QR</button>`;
 
     const hora = d.created_at ? new Date(d.created_at).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'}) : '--';
@@ -866,9 +885,14 @@ function mostrarQRExistente(id) {
 // ═══════════════════════════════════════════
 let idAutorizando = null;
 
-function abrirModalAuth(id) {
+async function abrirModalAuth(id) {
   const d = despachos.find(x=>x.despacho_id===id);
   if (!d) return;
+
+  // Verificar bloqueo
+  const bloqueado = await bloquearDespacho(id);
+  if (!bloqueado) return;
+
   idAutorizando = id;
   document.getElementById('modal-sena').textContent = senaDelDia;
   document.getElementById('modal-detail-content').innerHTML = `
@@ -885,6 +909,7 @@ function abrirModalAuth(id) {
 
 function cerrarModal() {
   document.getElementById('modal-auth').classList.remove('open');
+  if (idAutorizando) liberarBloqueo(idAutorizando);
   idAutorizando = null;
 }
 
@@ -1266,15 +1291,164 @@ async function exportarExcel() {
 }
 
 // ═══════════════════════════════════════════
+// SUPABASE REALTIME + PRESENCIA + BLOQUEO
+// ═══════════════════════════════════════════
+let supabaseClient = null;
+let realtimeChannel = null;
+let presenceChannel = null;
+
+function iniciarRealtime() {
+  if (!usuarioActual) return;
+
+  // Crear cliente Supabase con la librería oficial (para Realtime)
+  supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  // ── 1. REALTIME: escuchar cambios en despachos_qr ──
+  realtimeChannel = supabaseClient
+    .channel('despachos-sync')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: TABLA
+    }, payload => {
+      // Actualizar solo la fila afectada en el array local
+      const { eventType, new: nuevo, old: viejo } = payload;
+      if (eventType === 'INSERT') {
+        // Solo agregar si no existe ya (evitar duplicados)
+        if (!despachos.find(d => d.despacho_id === nuevo.despacho_id)) {
+          despachos.unshift(nuevo);
+          toast(`📦 Nuevo despacho registrado: ${nuevo.placa}`, 'ok');
+        }
+      } else if (eventType === 'UPDATE') {
+        const idx = despachos.findIndex(d => d.despacho_id === nuevo.despacho_id);
+        if (idx !== -1) {
+          despachos[idx] = nuevo;
+          // Si alguien autorizó un despacho que yo tenía abierto, cerrar mi modal
+          if (nuevo.estado === 'autorizado' && idAutorizando === nuevo.despacho_id) {
+            cerrarModal();
+            toast('⚠ Este despacho fue autorizado por otro operador', 'err');
+          }
+        } else {
+          despachos.unshift(nuevo);
+        }
+      } else if (eventType === 'DELETE') {
+        despachos = despachos.filter(d => d.despacho_id !== viejo.despacho_id);
+      }
+      renderTabla();
+      actualizarStats();
+      verificarAlertas();
+    })
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') {
+        console.log('[Realtime] Conectado al canal despachos-sync');
+      }
+    });
+
+  // ── 2. PRESENCIA: ver operadores activos ──
+  presenceChannel = supabaseClient
+    .channel('operadores-presencia', {
+      config: { presence: { key: usuarioActual.usuario } }
+    })
+    .on('presence', { event: 'sync' }, () => {
+      const state = presenceChannel.presenceState();
+      renderPresencia(state);
+    })
+    .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+      if (key !== usuarioActual.usuario) {
+        toast(`👤 ${newPresences[0]?.nombre || key} se conectó`, 'ok');
+      }
+    })
+    .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+      if (key !== usuarioActual.usuario) {
+        toast(`👤 ${leftPresences[0]?.nombre || key} se desconectó`, 'err');
+        // Liberar bloqueos de ese operador
+        liberarBloqueosDe(leftPresences[0]?.nombre);
+      }
+    })
+    .subscribe(async status => {
+      if (status === 'SUBSCRIBED') {
+        await presenceChannel.track({
+          nombre: usuarioActual.nombre,
+          usuario: usuarioActual.usuario,
+          rol: usuarioActual.rol,
+          online_at: new Date().toISOString()
+        });
+      }
+    });
+}
+
+function renderPresencia(state) {
+  const lista = document.getElementById('presencia-lista');
+  if (!lista) return;
+  const operadores = Object.values(state).flat();
+  if (!operadores.length) { lista.innerHTML = '—'; return; }
+  lista.innerHTML = operadores.map(op =>
+    `<span class="presencia-nombre ${op.usuario === usuarioActual?.usuario ? 'yo' : ''}">${op.nombre.split(' ')[0]}${op.usuario === usuarioActual?.usuario ? ' (yo)' : ''}</span>`
+  ).join('');
+}
+
+function detenerRealtime() {
+  if (realtimeChannel) { supabaseClient.removeChannel(realtimeChannel); realtimeChannel = null; }
+  if (presenceChannel) { supabaseClient.removeChannel(presenceChannel); presenceChannel = null; }
+  supabaseClient = null;
+  document.getElementById('presencia-lista').innerHTML = '—';
+}
+
+// ── BLOQUEO DE FILA ──
+async function bloquearDespacho(id) {
+  // Intentar bloquear — solo si no está ya bloqueado por otro
+  try {
+    const actual = await sbFetch(`${TABLA}?despacho_id=eq.${id}&select=procesando_por,procesando_desde`);
+    if (actual.length && actual[0].procesando_por && actual[0].procesando_por !== usuarioActual.nombre) {
+      // Verificar si el bloqueo tiene más de 2 minutos (bloqueo huérfano)
+      const desde = new Date(actual[0].procesando_desde);
+      const min2 = (Date.now() - desde.getTime()) > 120000;
+      if (!min2) {
+        toast(`⛔ ${actual[0].procesando_por} ya está procesando este despacho`, 'err');
+        return false;
+      }
+    }
+    await sbFetch(`${TABLA}?despacho_id=eq.${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        procesando_por: usuarioActual.nombre,
+        procesando_desde: new Date().toISOString()
+      })
+    });
+    return true;
+  } catch(e) {
+    console.error('Error al bloquear:', e);
+    return true; // Si falla el bloqueo, permitir continuar
+  }
+}
+
+async function liberarBloqueo(id) {
+  try {
+    await sbFetch(`${TABLA}?despacho_id=eq.${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ procesando_por: null, procesando_desde: null })
+    });
+  } catch(e) { console.error('Error al liberar bloqueo:', e); }
+}
+
+async function liberarBloqueosDe(nombre) {
+  if (!nombre) return;
+  try {
+    await sbFetch(`${TABLA}?procesando_por=eq.${encodeURIComponent(nombre)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ procesando_por: null, procesando_desde: null })
+    });
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════
 cargarSena();
 setEstadoConexion('wait');
-// Los datos se cargan después del login
-// cargarDespachos() y cargarCatalogos() se llaman post-login via hacerLogin()
 iniciarPingAutomatico();
-// Polling cada 15 segundos para detectar escaneos de guardias
-pollingInterval = setInterval(() => { if (usuarioActual) cargarDespachos(); }, 15000);
+// Polling de respaldo cada 30s (Realtime es el principal)
+pollingInterval = setInterval(() => { if (usuarioActual) cargarDespachos(); }, 30000);
 </script>
 
 <!-- MODAL ADMINISTRACIÓN -->
