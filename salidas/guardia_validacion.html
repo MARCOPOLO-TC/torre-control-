@@ -302,20 +302,12 @@ function renderValido(d) {
       </div>
       <div class="check-item" id="chk-3-wrap">
         <input type="checkbox" id="chk-3" onchange="verificarChecks()">
-        <label for="chk-3">Torre de Control autorizó la salida por teléfono</label>
+        <label for="chk-3">Documentos físicos del vehículo están en regla</label>
       </div>
-    </div>
-
-    <div class="timer-bar-wrap">
-      <div class="timer-label">
-        <span>⏱ Torre de Control llamará en los próximos 5 min</span>
-        <span id="timer-txt">5:00</span>
-      </div>
-      <div class="timer-bar"><div class="timer-fill" id="timer-fill" style="width:100%"></div></div>
     </div>
 
     <div class="evidencia-card" id="evidencia-card" style="display:none;">
-      <div class="evidencia-header"><span>📄 Documentos de salida</span></div>
+      <div class="evidencia-header"><span>📄 Registra documentos — Torre de Control autorizará en segundos</span></div>
       <div class="evidencia-body">
         <div class="campo-group">
           <label class="campo-label" for="inp-guia">N° Guía de remisión <span class="req">*</span></label>
@@ -338,9 +330,19 @@ function renderValido(d) {
       </div>
     </div>
 
-    <button class="btn-confirm" id="btn-confirm" disabled onclick="registrarSalidaFinal()">
-      ✓ Confirmar salida autorizada
+    <button class="btn-confirm" id="btn-confirm" disabled onclick="registrarDocumentos()">
+      📤 Enviar a Torre de Control
     </button>
+
+    <div id="panel-espera" style="display:none; background:var(--amber-bg); border:1px solid var(--amber-border); border-radius:12px; padding:16px; text-align:center;">
+      <div style="font-size:28px; margin-bottom:8px;">⏳</div>
+      <div style="font-size:14px; font-weight:700; color:var(--amber); margin-bottom:6px;">Documentos enviados</div>
+      <div style="font-size:12px; color:var(--text2); line-height:1.5;">Torre de Control está verificando.<br>La pantalla cambiará automáticamente al autorizar.</div>
+      <div style="margin-top:12px;">
+        <div class="timer-bar" style="margin-top:4px;"><div class="timer-fill" id="timer-fill" style="width:100%; background:var(--amber);"></div></div>
+        <div style="font-size:11px; color:var(--text3); margin-top:6px; font-variant-numeric:tabular-nums;" id="timer-txt">5:00</div>
+      </div>
+    </div>
 
     <p class="footer-note">
       ID de despacho: <strong>${d.despacho_id}</strong><br>
@@ -348,7 +350,7 @@ function renderValido(d) {
     </p>
   `;
 
-  iniciarTimer();
+  // Timer se inicia después de enviar documentos
 }
 
 function verificarChecks() {
@@ -413,10 +415,10 @@ async function subirFoto(file, despachoId) {
   return `${SUPABASE_URL}/storage/v1/object/public/evidencias/${path}`;
 }
 
-async function registrarSalidaFinal() {
+async function registrarDocumentos() {
   const btn = document.getElementById('btn-confirm');
   btn.disabled = true;
-  btn.textContent = 'Registrando...';
+  btn.textContent = 'Enviando...';
 
   const guia = document.getElementById('inp-guia').value.trim();
   const sello = document.getElementById('inp-sello').value.trim();
@@ -432,33 +434,61 @@ async function registrarSalidaFinal() {
         fotoUrl = await subirFoto(fotoFile, despachoData.despacho_id);
       } catch(e) {
         console.warn('No se pudo subir la foto, continuando sin ella:', e);
-        // Foto es opcional — no bloqueamos si falla
       }
     }
 
     btn.textContent = 'Guardando...';
+    // SOLO guarda documentos — NO cambia estado ni timestamp_autorizacion
+    // El estado 'autorizado' lo pone únicamente el operador en tc_despachos
     await sbFetch(`${TABLA}?despacho_id=eq.${despachoData.despacho_id}`, {
       method: 'PATCH',
       body: JSON.stringify({
-        estado: 'autorizado',
-        timestamp_autorizacion: new Date().toISOString(),
         num_guia: guia,
         num_sello: sello,
         ...(fotoUrl ? { foto_evidencia: fotoUrl } : {})
       })
     });
 
-    // Actualizar datos locales para renderAutorizado
+    // Guardar localmente
     despachoData.num_guia = guia;
     despachoData.num_sello = sello;
     if (fotoUrl) despachoData.foto_evidencia = fotoUrl;
 
-    renderAutorizado(despachoData);
+    // Mostrar panel de espera y ocultar formulario + botón
+    btn.style.display = 'none';
+    document.getElementById('evidencia-card').style.opacity = '0.5';
+    document.getElementById('evidencia-card').style.pointerEvents = 'none';
+    document.getElementById('panel-espera').style.display = 'block';
+
+    // Iniciar timer y polling para detectar autorización de TC
+    iniciarTimer();
+    iniciarPolling();
+
   } catch(e) {
     btn.disabled = false;
-    btn.textContent = '✓ Confirmar salida autorizada';
+    btn.textContent = '📤 Enviar a Torre de Control';
     alert('Error al registrar. Intenta de nuevo.');
   }
+}
+
+let pollingInterval = null;
+
+function iniciarPolling() {
+  // Cada 4 segundos consulta si TC ya autorizó
+  pollingInterval = setInterval(async () => {
+    try {
+      const data = await sbFetch(`${TABLA}?despacho_id=eq.${despachoData.despacho_id}`);
+      if (data && data[0] && data[0].estado === 'autorizado') {
+        clearInterval(pollingInterval);
+        clearInterval(timerInterval);
+        // Fusionar datos locales con lo que devuelve Supabase
+        const d = { ...data[0], ...{ num_guia: despachoData.num_guia, num_sello: despachoData.num_sello, foto_evidencia: despachoData.foto_evidencia } };
+        renderAutorizado(d);
+      }
+    } catch(e) {
+      console.warn('Polling error:', e);
+    }
+  }, 4000);
 }
 
 function iniciarTimer() {
@@ -473,7 +503,8 @@ function iniciarTimer() {
     if (fill) fill.style.width = Math.max(0, (timerSegundos/300)*100) + '%';
     if (timerSegundos <= 0) {
       clearInterval(timerInterval);
-      if (el) el.textContent = 'Contacta TC';
+      if (pollingInterval) clearInterval(pollingInterval);
+      if (el) el.textContent = '⚠ Llama a TC';
       if (fill) { fill.style.background = 'var(--red)'; fill.style.width = '100%'; }
     }
   }, 1000);
