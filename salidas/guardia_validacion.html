@@ -86,6 +86,28 @@
   .timer-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
   .timer-fill { height: 100%; background: var(--amber); border-radius: 3px; transition: width 1s linear; }
 
+  /* FORMULARIO EVIDENCIA */
+  .evidencia-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .evidencia-header { background: rgba(245,166,35,0.08); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; gap: 8px; }
+  .evidencia-header span { font-size: 13px; font-weight: 600; color: var(--amber); }
+  .evidencia-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+  .campo-group { display: flex; flex-direction: column; gap: 5px; }
+  .campo-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.05em; }
+  .campo-label .req { color: var(--red); margin-left: 2px; }
+  .campo-input { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 14px; font-weight: 600; color: var(--text); width: 100%; outline: none; transition: border-color 0.2s; font-family: inherit; }
+  .campo-input:focus { border-color: var(--accent); }
+  .campo-input.error { border-color: var(--red); }
+  .campo-input::placeholder { color: var(--text3); font-weight: 400; }
+
+  /* FOTO UPLOAD */
+  .foto-area { border: 2px dashed var(--border); border-radius: 10px; padding: 16px; text-align: center; cursor: pointer; transition: border-color 0.2s, background 0.2s; position: relative; }
+  .foto-area:hover { border-color: var(--accent); background: var(--accent-bg); }
+  .foto-area input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .foto-area-icon { font-size: 28px; margin-bottom: 6px; }
+  .foto-area-text { font-size: 12px; color: var(--text2); line-height: 1.5; }
+  .foto-preview { width: 100%; border-radius: 8px; margin-top: 8px; display: none; max-height: 200px; object-fit: cover; }
+  .foto-nombre { font-size: 11px; color: var(--green); margin-top: 6px; display: none; }
+
   /* FOOTER INFO */
   .footer-note { font-size: 11px; color: var(--text3); text-align: center; line-height: 1.6; }
 
@@ -292,6 +314,30 @@ function renderValido(d) {
       <div class="timer-bar"><div class="timer-fill" id="timer-fill" style="width:100%"></div></div>
     </div>
 
+    <div class="evidencia-card" id="evidencia-card" style="display:none;">
+      <div class="evidencia-header"><span>📄 Documentos de salida</span></div>
+      <div class="evidencia-body">
+        <div class="campo-group">
+          <label class="campo-label" for="inp-guia">N° Guía de remisión <span class="req">*</span></label>
+          <input class="campo-input" type="text" id="inp-guia" placeholder="Ej: GR-001234" oninput="verificarEvidencia()" autocomplete="off" autocapitalize="characters">
+        </div>
+        <div class="campo-group">
+          <label class="campo-label" for="inp-sello">N° Sello <span class="req">*</span></label>
+          <input class="campo-input" type="text" id="inp-sello" placeholder="Ej: SL-5678" oninput="verificarEvidencia()" autocomplete="off" autocapitalize="characters">
+        </div>
+        <div class="campo-group">
+          <label class="campo-label">Foto de evidencia <span style="color:var(--text3);font-weight:400;">(opcional)</span></label>
+          <div class="foto-area" id="foto-area">
+            <input type="file" id="inp-foto" accept="image/*" capture="environment" onchange="previsualizarFoto(this)">
+            <div class="foto-area-icon">📷</div>
+            <div class="foto-area-text">Toca para tomar foto o seleccionar imagen</div>
+          </div>
+          <img class="foto-preview" id="foto-preview" alt="Vista previa">
+          <div class="foto-nombre" id="foto-nombre"></div>
+        </div>
+      </div>
+    </div>
+
     <button class="btn-confirm" id="btn-confirm" disabled onclick="registrarSalidaFinal()">
       ✓ Confirmar salida autorizada
     </button>
@@ -308,12 +354,63 @@ function renderValido(d) {
 function verificarChecks() {
   const checks = ['chk-1','chk-2','chk-3'];
   const todos = checks.every(id => document.getElementById(id).checked);
-  document.getElementById('btn-confirm').disabled = !todos;
 
   checks.forEach(id => {
     const wrap = document.getElementById(id + '-wrap');
     if (wrap) wrap.classList.toggle('checked', document.getElementById(id).checked);
   });
+
+  // Mostrar formulario de evidencia solo cuando los 3 checks están marcados
+  const evidenciaCard = document.getElementById('evidencia-card');
+  if (evidenciaCard) evidenciaCard.style.display = todos ? '' : 'none';
+
+  verificarEvidencia();
+}
+
+function verificarEvidencia() {
+  const checks = ['chk-1','chk-2','chk-3'];
+  const todosChecks = checks.every(id => {
+    const el = document.getElementById(id);
+    return el && el.checked;
+  });
+  const guia = (document.getElementById('inp-guia')?.value || '').trim();
+  const sello = (document.getElementById('inp-sello')?.value || '').trim();
+
+  const listo = todosChecks && guia.length > 0 && sello.length > 0;
+  const btn = document.getElementById('btn-confirm');
+  if (btn) btn.disabled = !listo;
+}
+
+function previsualizarFoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const preview = document.getElementById('foto-preview');
+  const nombre = document.getElementById('foto-nombre');
+  const reader = new FileReader();
+  reader.onload = e => {
+    preview.src = e.target.result;
+    preview.style.display = 'block';
+    nombre.textContent = '📎 ' + file.name;
+    nombre.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function subirFoto(file, despachoId) {
+  // Subir al bucket "evidencias" en Supabase Storage
+  const ext = file.name.split('.').pop();
+  const path = `despachos/${despachoId}_${Date.now()}.${ext}`;
+  const res = await fetch(`${SUPABASE_URL}/storage/v1/object/evidencias/${path}`, {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_KEY,
+      'Content-Type': file.type
+    },
+    body: file
+  });
+  if (!res.ok) throw new Error('Error al subir foto');
+  return `${SUPABASE_URL}/storage/v1/object/public/evidencias/${path}`;
 }
 
 async function registrarSalidaFinal() {
@@ -321,14 +418,41 @@ async function registrarSalidaFinal() {
   btn.disabled = true;
   btn.textContent = 'Registrando...';
 
+  const guia = document.getElementById('inp-guia').value.trim();
+  const sello = document.getElementById('inp-sello').value.trim();
+  const fotoInput = document.getElementById('inp-foto');
+  const fotoFile = fotoInput?.files[0] || null;
+
   try {
+    let fotoUrl = null;
+
+    if (fotoFile) {
+      btn.textContent = 'Subiendo foto...';
+      try {
+        fotoUrl = await subirFoto(fotoFile, despachoData.despacho_id);
+      } catch(e) {
+        console.warn('No se pudo subir la foto, continuando sin ella:', e);
+        // Foto es opcional — no bloqueamos si falla
+      }
+    }
+
+    btn.textContent = 'Guardando...';
     await sbFetch(`${TABLA}?despacho_id=eq.${despachoData.despacho_id}`, {
       method: 'PATCH',
       body: JSON.stringify({
         estado: 'autorizado',
-        timestamp_autorizacion: new Date().toISOString()
+        timestamp_autorizacion: new Date().toISOString(),
+        num_guia: guia,
+        num_sello: sello,
+        ...(fotoUrl ? { foto_evidencia: fotoUrl } : {})
       })
     });
+
+    // Actualizar datos locales para renderAutorizado
+    despachoData.num_guia = guia;
+    despachoData.num_sello = sello;
+    if (fotoUrl) despachoData.foto_evidencia = fotoUrl;
+
     renderAutorizado(despachoData);
   } catch(e) {
     btn.disabled = false;
@@ -377,6 +501,9 @@ function renderUsado(d) {
 
 function renderAutorizado(d) {
   const auth = d.timestamp_autorizacion ? new Date(d.timestamp_autorizacion).toLocaleString('es-EC') : '—';
+  const fotoHtml = d.foto_evidencia
+    ? `<div class="dato-row"><span class="dato-key">Foto</span><span class="dato-val"><a href="${d.foto_evidencia}" target="_blank" style="color:var(--accent);font-size:12px;">Ver imagen 📷</a></span></div>`
+    : '';
   document.getElementById('content').innerHTML = `
     <div class="estado-card autorizado">
       <div class="estado-icon">🟢</div>
@@ -389,6 +516,9 @@ function renderAutorizado(d) {
         <div class="dato-row"><span class="dato-key">Conductor</span><span class="dato-val">${d.conductor}</span></div>
         <div class="dato-row"><span class="dato-key">Cliente</span><span class="dato-val">${d.cliente}</span></div>
         <div class="dato-row"><span class="dato-key">Destino</span><span class="dato-val">${d.destino||'—'}</span></div>
+        <div class="dato-row"><span class="dato-key">Guía remisión</span><span class="dato-val">${d.num_guia||'—'}</span></div>
+        <div class="dato-row"><span class="dato-key">N° Sello</span><span class="dato-val">${d.num_sello||'—'}</span></div>
+        ${fotoHtml}
         <div class="dato-row"><span class="dato-key">Autorizado</span><span class="dato-val" style="font-size:12px;">${auth}</span></div>
       </div>
     </div>
