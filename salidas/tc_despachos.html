@@ -145,7 +145,7 @@
   /* MODAL */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 200; align-items: center; justify-content: center; }
   .modal-overlay.open { display: flex; }
-  .modal { background: var(--card); border: 1px solid var(--border2); border-radius: 14px; padding: 28px; width: 460px; max-width: 95vw; }
+  .modal { background: var(--card); border: 1px solid var(--border2); border-radius: 14px; padding: 28px; width: 460px; max-width: 95vw; max-height: 90vh; overflow-y: auto; }
   .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
   .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
   .modal-detail { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 14px; }
@@ -156,6 +156,17 @@
   .sena-display { text-align: center; background: var(--amber-bg); border: 1px solid var(--amber-border); border-radius: var(--radius-sm); padding: 14px; margin: 12px 0; }
   .sena-display p { font-size: 11px; color: var(--amber); font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
   .sena-display .word { font-size: 28px; font-weight: 700; color: var(--amber); letter-spacing: 3px; }
+
+  /* EVIDENCIA DEL GUARDIA — dentro del modal */
+  .porteria-evidencia { background: var(--green-bg); border: 1px solid var(--green-border); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 12px; }
+  .porteria-evidencia-title { font-size: 10px; font-weight: 600; color: var(--green); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .porteria-evidencia-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid var(--green-border); font-size: 12px; }
+  .porteria-evidencia-row:last-child { border-bottom: none; }
+  .porteria-evidencia-key { color: var(--green); font-weight: 600; font-size: 10px; text-transform: uppercase; }
+  .porteria-evidencia-val { color: var(--text); font-weight: 600; }
+  .porteria-evidencia-foto { color: var(--accent); text-decoration: none; font-size: 11px; font-weight: 600; }
+  .porteria-evidencia-foto:hover { opacity: 0.8; }
+  .porteria-sin-evidencia { font-size: 11px; color: var(--amber); display: flex; align-items: center; gap: 6px; background: var(--amber-bg); border: 1px solid var(--amber-border); border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 12px; }
 
   /* LOGIN SCREEN */
   .login-screen { width: 100%; min-height: 100vh; background: var(--bg); display: flex; align-items: center; justify-content: center; }
@@ -479,6 +490,10 @@
   <div class="modal">
     <h2>🔐 Autorizar salida</h2>
     <div class="modal-detail" id="modal-detail-content"></div>
+
+    <!-- ▼ NUEVO: datos registrados por el guardia en portería ▼ -->
+    <div id="modal-porteria-evidencia" style="display:none;"></div>
+
     <div class="sena-display">
       <p>Santo y seña del día</p>
       <div class="word" id="modal-sena">---</div>
@@ -509,7 +524,7 @@ let pollingInterval = null;
 // ═══════════════════════════════════════════
 // SESIÓN DE USUARIO
 // ═══════════════════════════════════════════
-let usuarioActual = null; // { id, nombre, usuario, rol }
+let usuarioActual = null;
 
 async function hacerLogin() {
   const user = document.getElementById('login-user').value.trim().toLowerCase();
@@ -520,7 +535,6 @@ async function hacerLogin() {
   if (!user || !pin) { errEl.textContent = 'Ingresa usuario y PIN.'; errEl.style.display = 'block'; return; }
 
   try {
-    // Buscar en Supabase — PIN se compara en texto plano (simple, sin bcrypt)
     const data = await sbFetch(`operadores_despachos?usuario=eq.${encodeURIComponent(user)}&pin=eq.${encodeURIComponent(pin)}&activo=eq.true&select=id,nombre,usuario,rol`);
     if (!data.length) {
       errEl.textContent = 'Usuario o PIN incorrecto.';
@@ -536,15 +550,12 @@ async function hacerLogin() {
     window.scrollTo(0, 0);
     document.getElementById('app-content').classList.add('visible');
     document.getElementById('user-nombre').textContent = usuarioActual.nombre.split(' ')[0];
-    // Mostrar tab Operadores solo a supervisores
     if (usuarioActual.rol === 'supervisor') {
       document.getElementById('tab-operadores').style.display = '';
     }
-    // Cargar datos operacionales
     cargarDespachos();
     cargarCatalogos();
     iniciarRealtime();
-    // Registrar ingreso en consola
     console.log(`[LOGIN] ${usuarioActual.nombre} (${usuarioActual.rol}) — ${new Date().toLocaleString('es-EC')}`);
   } catch(e) {
     errEl.textContent = 'Error de conexión. Intenta nuevamente.';
@@ -631,7 +642,6 @@ async function sbFetch(path, options={}) {
 // ESTADO DE CONEXIÓN SUPABASE
 // ═══════════════════════════════════════════
 function setEstadoConexion(estado) {
-  // estado: 'ok' | 'err' | 'wait'
   const badge = document.getElementById('op-badge');
   const label = document.getElementById('conn-label');
   if (!badge || !label) return;
@@ -648,7 +658,6 @@ function setEstadoConexion(estado) {
   }
 }
 
-// Detectar pérdida/recuperación de red del navegador
 window.addEventListener('online',  () => cargarDespachos());
 window.addEventListener('offline', () => setEstadoConexion('err'));
 
@@ -721,7 +730,6 @@ async function registrarDespacho() {
     toast('Despacho registrado y QR generado', 'ok');
   } catch(e) {
     console.error(e);
-    // Si la tabla no existe, mostrar instrucciones SQL
     if (e.message.includes('does not exist') || e.message.includes('relation')) {
       mostrarInstruccionesSQL();
     } else {
@@ -825,8 +833,13 @@ function renderTabla() {
     else if (d.estado === 'en_porteria') badge = `<span class="status-badge status-scanning"><span class="status-dot pulse"></span>En portería</span>`;
     else if (d.estado === 'autorizado') badge = `<span class="status-badge status-authorized"><span class="status-dot"></span>Autorizado</span>`;
 
+    // Badge de documentos (guía + sello registrados por el guardia)
+    const docsBadge = (d.num_guia && d.num_sello)
+      ? `<span title="Guía: ${d.num_guia} | Sello: ${d.num_sello}" style="background:var(--green-bg);border:1px solid var(--green-border);border-radius:4px;padding:2px 6px;font-size:10px;color:var(--green);font-weight:600;margin-left:4px;cursor:default;">📄 Docs</span>`
+      : '';
+
     const acciones = d.estado === 'autorizado'
-      ? `<span style="font-size:11px;color:var(--text3);">✓ Salida registrada</span>`
+      ? `<span style="font-size:11px;color:var(--text3);">✓ Salida registrada</span>${docsBadge}`
       : d.estado === 'en_porteria'
       ? (d.procesando_por && d.procesando_por !== usuarioActual?.nombre
           ? `<span class="procesando-badge">🔒 ${d.procesando_por.split(' ')[0]}</span>`
@@ -889,12 +902,13 @@ async function abrirModalAuth(id) {
   const d = despachos.find(x=>x.despacho_id===id);
   if (!d) return;
 
-  // Verificar bloqueo
   const bloqueado = await bloquearDespacho(id);
   if (!bloqueado) return;
 
   idAutorizando = id;
   document.getElementById('modal-sena').textContent = senaDelDia;
+
+  // Datos del despacho
   document.getElementById('modal-detail-content').innerHTML = `
     <div class="modal-detail-row"><span class="modal-detail-key">Placa</span><span class="modal-detail-val">${d.placa}</span></div>
     <div class="modal-detail-row"><span class="modal-detail-key">Conductor</span><span class="modal-detail-val">${d.conductor}</span></div>
@@ -904,6 +918,29 @@ async function abrirModalAuth(id) {
     <div class="modal-detail-row"><span class="modal-detail-key">Custodia reacción</span><span class="modal-detail-val">${d.custodia_reaccion||'Sin custodia'}</span></div>
     <div class="modal-detail-row"><span class="modal-detail-key">Custodia avanzada</span><span class="modal-detail-val">${d.custodia_avanzada||'Sin custodia'}</span></div>
   `;
+
+  // ▼ Datos registrados por el guardia en portería
+  const evidenciaDiv = document.getElementById('modal-porteria-evidencia');
+  if (evidenciaDiv) {
+    if (d.num_guia || d.num_sello || d.foto_evidencia) {
+      const fotoHtml = d.foto_evidencia
+        ? `<div class="porteria-evidencia-row"><span class="porteria-evidencia-key">Foto</span><a href="${d.foto_evidencia}" target="_blank" class="porteria-evidencia-foto">Ver imagen 📷</a></div>`
+        : '';
+      evidenciaDiv.innerHTML = `
+        <div class="porteria-evidencia">
+          <div class="porteria-evidencia-title">✅ Datos registrados por guardia</div>
+          <div class="porteria-evidencia-row"><span class="porteria-evidencia-key">Guía remisión</span><span class="porteria-evidencia-val">${d.num_guia || '—'}</span></div>
+          <div class="porteria-evidencia-row"><span class="porteria-evidencia-key">N° Sello</span><span class="porteria-evidencia-val">${d.num_sello || '—'}</span></div>
+          ${fotoHtml}
+        </div>`;
+      evidenciaDiv.style.display = 'block';
+    } else {
+      // Guardia aún no completó el formulario
+      evidenciaDiv.innerHTML = `<div class="porteria-sin-evidencia"><span>⏳</span> El guardia aún no ha registrado la guía de remisión ni el sello.</div>`;
+      evidenciaDiv.style.display = 'block';
+    }
+  }
+
   document.getElementById('modal-auth').classList.add('open');
 }
 
@@ -938,8 +975,8 @@ async function confirmarAutorizacion() {
 function limpiarFormulario() {
   ['f-placa','f-conductor','f-celular','f-destino','f-obs'].forEach(id => document.getElementById(id).value='');
   ['f-custodia-reaccion','f-custodia-avanzada'].forEach(id => document.getElementById(id).selectedIndex=0);
-document.getElementById('f-cliente').value='';
-document.getElementById('f-origen').value='';
+  document.getElementById('f-cliente').value='';
+  document.getElementById('f-origen').value='';
   document.getElementById('f-hora').value='';
 }
 
@@ -952,13 +989,9 @@ function toast(msg, tipo='ok') {
   setTimeout(()=>{ t.style.display='none'; }, 3500);
 }
 
-// ═══════════════════════════════════════════
-// SQL HELPER — mostrar en consola
-// ═══════════════════════════════════════════
 console.log('═══ SQL para crear tabla en Supabase ═══');
 console.log(getSQLCreacion());
 console.log('═══════════════════════════════════════');
-
 
 // ═══════════════════════════════════════════
 // CARGA DINÁMICA DE CLIENTES Y CDs
@@ -1003,7 +1036,6 @@ function abrirAdmin() {
 
 function cerrarAdmin() {
   document.getElementById('admin-overlay').classList.remove('open');
-  // Recargar catálogos por si hubo cambios
   cargarCatalogos();
 }
 
@@ -1016,7 +1048,6 @@ function switchAdminTab(tab) {
   if (tab === 'operadores') cargarAdminOperadores();
 }
 
-// --- CLIENTES ---
 async function cargarAdminClientes() {
   try {
     const data = await sbFetch('clientes_inlog?order=nombre.asc');
@@ -1063,7 +1094,6 @@ async function eliminarCliente(id, nombre) {
   } catch(e) { toast('Error al eliminar', 'err'); }
 }
 
-// --- CENTROS DE DISTRIBUCIÓN ---
 async function cargarAdminCDs() {
   try {
     const data = await sbFetch('centros_distribucion?order=nombre.asc');
@@ -1110,7 +1140,6 @@ async function eliminarCD(id, nombre) {
   } catch(e) { toast('Error al eliminar', 'err'); }
 }
 
-// --- OPERADORES ---
 async function cargarAdminOperadores() {
   try {
     const data = await sbFetch('operadores_despachos?order=nombre.asc&select=id,nombre,usuario,rol,activo');
@@ -1174,15 +1203,13 @@ async function eliminarOperador(id, nombre) {
   } catch(e) { toast('Error al eliminar', 'err'); }
 }
 
-
-// Hace una consulta mínima cada 4 días para
-// mantener el proyecto activo (límite: 7 días)
+// ═══════════════════════════════════════════
+// PING ANTI-SUSPENSIÓN
 // ═══════════════════════════════════════════
 async function pingSupabase() {
   try {
     await sbFetch(`${TABLA}?limit=1&select=id`);
-    const ahora = Date.now();
-    localStorage.setItem('inlog_last_ping', ahora);
+    localStorage.setItem('inlog_last_ping', Date.now());
     console.log('Ping Supabase OK —', new Date().toLocaleString('es-EC'));
   } catch(e) {
     console.warn('Ping fallido:', e.message);
@@ -1190,14 +1217,9 @@ async function pingSupabase() {
 }
 
 function iniciarPingAutomatico() {
-  const INTERVALO_MS = 4 * 24 * 60 * 60 * 1000; // 4 días en ms
+  const INTERVALO_MS = 4 * 24 * 60 * 60 * 1000;
   const ultimoPing = parseInt(localStorage.getItem('inlog_last_ping') || '0');
-  const ahora = Date.now();
-  // Si han pasado más de 4 días desde el último ping, lanzar inmediatamente
-  if (ahora - ultimoPing > INTERVALO_MS) {
-    pingSupabase();
-  }
-  // Repetir cada 4 días mientras la app esté abierta
+  if (Date.now() - ultimoPing > INTERVALO_MS) pingSupabase();
   setInterval(pingSupabase, INTERVALO_MS);
 }
 
@@ -1211,7 +1233,6 @@ async function exportarExcel() {
   btn.disabled = true;
 
   try {
-    // Calcular fecha desde según rango
     let filtro = '';
     const hoy = new Date();
     if (rango === 'hoy') {
@@ -1223,7 +1244,6 @@ async function exportarExcel() {
       const desde = new Date(hoy); desde.setDate(hoy.getDate() - 30);
       filtro = `&fecha_despacho=gte.${desde.toISOString().slice(0,10)}`;
     }
-    // 'todo' = sin filtro de fecha
 
     const data = await sbFetch(`${TABLA}?order=fecha_despacho.desc,created_at.desc${filtro}&limit=1000`);
 
@@ -1232,7 +1252,6 @@ async function exportarExcel() {
       return;
     }
 
-    // Construir CSV con BOM para que Excel lo abra correctamente con tildes
     const cols = [
       { key: 'fecha_despacho',         label: 'Fecha' },
       { key: 'despacho_id',            label: 'ID Despacho' },
@@ -1247,6 +1266,9 @@ async function exportarExcel() {
       { key: 'hora_max_salida',        label: 'Hora Máx. Salida' },
       { key: 'sena_dia',               label: 'Santo y Seña' },
       { key: 'estado',                 label: 'Estado' },
+      { key: 'num_guia',               label: 'Guía Remisión' },
+      { key: 'num_sello',              label: 'N° Sello' },
+      { key: 'foto_evidencia',         label: 'Foto Evidencia URL' },
       { key: 'timestamp_escaneo',      label: 'Timestamp Escaneo' },
       { key: 'timestamp_autorizacion', label: 'Timestamp Autorización' },
       { key: 'operador_autorizo',      label: 'Operador Autorizó' },
@@ -1257,11 +1279,9 @@ async function exportarExcel() {
     const filas = data.map(d =>
       cols.map(c => {
         let val = d[c.key] || '';
-        // Formatear timestamps
         if ((c.key === 'timestamp_escaneo' || c.key === 'timestamp_autorizacion') && val) {
           val = new Date(val).toLocaleString('es-EC', {hour12: false});
         }
-        // Escapar comillas dobles
         val = String(val).replace(/"/g, '""');
         return `"${val}"`;
       }).join(';')
@@ -1271,8 +1291,6 @@ async function exportarExcel() {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-
-    // Nombre del archivo según rango
     const nombres = { hoy: 'hoy', semana: 'ultimos7dias', mes: 'ultimo_mes', todo: 'historial_completo' };
     a.href = url;
     a.download = `INLOG_Despachos_${nombres[rango]}_${fechaHoy()}.csv`;
@@ -1300,10 +1318,8 @@ let presenceChannel = null;
 function iniciarRealtime() {
   if (!usuarioActual) return;
 
-  // Crear cliente Supabase con la librería oficial (para Realtime)
   supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  // ── 1. REALTIME: escuchar cambios en despachos_qr ──
   realtimeChannel = supabaseClient
     .channel('despachos-sync')
     .on('postgres_changes', {
@@ -1311,10 +1327,8 @@ function iniciarRealtime() {
       schema: 'public',
       table: TABLA
     }, payload => {
-      // Actualizar solo la fila afectada en el array local
       const { eventType, new: nuevo, old: viejo } = payload;
       if (eventType === 'INSERT') {
-        // Solo agregar si no existe ya (evitar duplicados)
         if (!despachos.find(d => d.despacho_id === nuevo.despacho_id)) {
           despachos.unshift(nuevo);
           toast(`📦 Nuevo despacho registrado: ${nuevo.placa}`, 'ok');
@@ -1323,7 +1337,6 @@ function iniciarRealtime() {
         const idx = despachos.findIndex(d => d.despacho_id === nuevo.despacho_id);
         if (idx !== -1) {
           despachos[idx] = nuevo;
-          // Si alguien autorizó un despacho que yo tenía abierto, cerrar mi modal
           if (nuevo.estado === 'autorizado' && idAutorizando === nuevo.despacho_id) {
             cerrarModal();
             toast('⚠ Este despacho fue autorizado por otro operador', 'err');
@@ -1344,7 +1357,6 @@ function iniciarRealtime() {
       }
     });
 
-  // ── 2. PRESENCIA: ver operadores activos ──
   presenceChannel = supabaseClient
     .channel('operadores-presencia', {
       config: { presence: { key: usuarioActual.usuario } }
@@ -1361,7 +1373,6 @@ function iniciarRealtime() {
     .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
       if (key !== usuarioActual.usuario) {
         toast(`👤 ${leftPresences[0]?.nombre || key} se desconectó`, 'err');
-        // Liberar bloqueos de ese operador
         liberarBloqueosDe(leftPresences[0]?.nombre);
       }
     })
@@ -1394,13 +1405,10 @@ function detenerRealtime() {
   document.getElementById('presencia-lista').innerHTML = '—';
 }
 
-// ── BLOQUEO DE FILA ──
 async function bloquearDespacho(id) {
-  // Intentar bloquear — solo si no está ya bloqueado por otro
   try {
     const actual = await sbFetch(`${TABLA}?despacho_id=eq.${id}&select=procesando_por,procesando_desde`);
     if (actual.length && actual[0].procesando_por && actual[0].procesando_por !== usuarioActual.nombre) {
-      // Verificar si el bloqueo tiene más de 2 minutos (bloqueo huérfano)
       const desde = new Date(actual[0].procesando_desde);
       const min2 = (Date.now() - desde.getTime()) > 120000;
       if (!min2) {
@@ -1418,7 +1426,7 @@ async function bloquearDespacho(id) {
     return true;
   } catch(e) {
     console.error('Error al bloquear:', e);
-    return true; // Si falla el bloqueo, permitir continuar
+    return true;
   }
 }
 
@@ -1447,7 +1455,6 @@ async function liberarBloqueosDe(nombre) {
 cargarSena();
 setEstadoConexion('wait');
 iniciarPingAutomatico();
-// Polling de respaldo cada 30s (Realtime es el principal)
 pollingInterval = setInterval(() => { if (usuarioActual) cargarDespachos(); }, 30000);
 </script>
 
