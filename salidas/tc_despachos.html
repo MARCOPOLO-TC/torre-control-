@@ -629,7 +629,8 @@ function generarSena() {
   localStorage.setItem('inlog_sena_' + fechaHoy(), senaDelDia);
 }
 function fechaHoy() {
-  return new Date().toISOString().slice(0,10);
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
 }
 function cargarSena() {
   const guardada = localStorage.getItem('inlog_sena_' + fechaHoy());
