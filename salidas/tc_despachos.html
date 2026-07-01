@@ -235,7 +235,19 @@
   .btn-del { border-color: var(--red-border) !important; color: var(--red) !important; }
   .admin-empty { text-align: center; padding: 20px; color: var(--text3); font-size: 13px; }
   .admin-close { background: transparent; border: 1px solid var(--border2); border-radius: var(--radius-sm); padding: 8px 18px; font-size: 13px; color: var(--text2); cursor: pointer; margin-top: 20px; }
-  .admin-close:hover { border-color: var(--accent); color: var(--accent); }
+  .admin-close:hover { border-color: var(--accent); color: var(--accent); }.placa-sugerencias{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border,#ddd);border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.12);z-index:50;max-height:220px;overflow-y:auto;margin-top:2px;}
+.sugerencia-item{padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f0f0f0;}
+.sugerencia-item:last-child{border-bottom:none;}
+.sugerencia-item:hover{background:#f5f7fa;}
+.sugerencia-item .placa{font-weight:700;color:#1a73e8;margin-right:8px;}
+.sugerencia-item .det{color:#666;font-size:12px;}
+.badge-equipo{display:inline-block;padding:2px 7px;border-radius:10px;margin-right:4px;font-size:11px;}
+.badge-tiene{background:#E8F5E9;color:#2E7D32;}
+.badge-no{background:#FAFAFA;color:#9e9e9e;}
+.checklist-grupo { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
+.chk-item { padding:6px 12px; border-radius:6px; border:1px solid #ccc; cursor:pointer; font-size:13px; background:#fff3cd; color:#856404; transition:all .15s; }
+.chk-item[data-estado="tiene"] { background:#d4edda; border-color:#28a745; color:#155724; }
+.chk-item[data-estado="no_tiene"] { background:#f8d7da; border-color:#dc3545; color:#721c24; }
 </style>
 </head>
 <body>
@@ -331,9 +343,11 @@
         </div>
 
         <div class="form-grid">
-          <div class="form-group">
+          <div class="form-group" style="position:relative;">
             <label>Placa del vehículo *</label>
-            <input type="text" id="f-placa" placeholder="ABC-1234" maxlength="8" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase()">
+            <input type="text" id="f-placa" placeholder="ABC-1234" maxlength="8" autocomplete="off" style="text-transform:uppercase;" oninput="this.value=this.value.toUpperCase(); buscarEnFlota(this.value);">
+            <div id="placa-sugerencias" class="placa-sugerencias" style="display:none;"></div>
+            <div id="placa-badges" style="display:none;margin-top:4px;font-size:11px;"></div>
           </div>
           <div class="form-group">
             <label>Nombre del conductor *</label>
@@ -386,6 +400,14 @@
           <div class="form-group full">
             <label>Observaciones</label>
             <textarea id="f-obs" placeholder="Instrucciones especiales, número de guía, etc."></textarea>
+          </div>
+        </div>
+        <div class="protocolo-salida" style="margin-top:14px;">
+          <label>Protocolo de Salida:</label>
+          <div class="checklist-grupo">
+            <button type="button" class="chk-item" id="chk_panico" data-estado="pendiente" onclick="toggleChecklist('panico')">🟡 Pánico: Pendiente</button>
+            <button type="button" class="chk-item" id="chk_gps" data-estado="pendiente" onclick="toggleChecklist('gps')">🟡 GPS: Pendiente</button>
+            <button type="button" class="chk-item" id="chk_chapa" data-estado="pendiente" onclick="toggleChecklist('chapa')">🟡 Chapa: Pendiente</button>
           </div>
         </div>
         <div style="margin-top:14px;display:flex;gap:10px;">
@@ -515,6 +537,10 @@
 const SUPABASE_URL = 'https://cnzldoetdehaflihrswi.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuemxkb2V0ZGVoYWZsaWhyc3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNjIwNDIsImV4cCI6MjA5NTYzODA0Mn0.FltL4aNuTr0vAJcHtROeY5QyBB3WRb8UjHwGyFD-B5E';
 const TABLA = 'despachos_qr';
+
+// Proyecto Monitoreo de Flota (fuente de datos para autocompletar el despacho)
+const SUPABASE_FLOTA_URL = 'https://udpjbpmjofpkdcvfuzzu.supabase.co';
+const SUPABASE_FLOTA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVkcGpicG1qb2Zwa2RjdmZ1enp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwODU5MTMsImV4cCI6MjA5NTY2MTkxM30.gpZ4ui57g5CWD_ukwDxAEuHX7B7C9f2BdHzW12ih9Wo';
 
 let despachos = [];
 let despachoSeleccionado = null;
@@ -713,7 +739,8 @@ async function registrarDespacho() {
     fecha_despacho: fechaHoy(),
     sena_dia: senaDelDia,
     estado: 'pendiente',
-    qr_usado: false
+    qr_usado: false,
+    ...getChecklistValues()
   };
 
   try {
@@ -978,7 +1005,134 @@ function limpiarFormulario() {
   document.getElementById('f-cliente').value='';
   document.getElementById('f-origen').value='';
   document.getElementById('f-hora').value='';
+  ocultarSugerenciasFlota();
+  document.getElementById('placa-badges').style.display='none';
+  document.getElementById('placa-badges').innerHTML='';
+  resetChecklist();
 }
+
+// ═══════════════════════════════════════════
+// BUSCADOR DE PLACA EN MONITOREO DE FLOTA
+// Evita redigitar conductor/celular/destino cuando
+// el vehículo ya fue cargado en Flota (formato del ejecutivo)
+// ═══════════════════════════════════════════
+let buscandoPlacaTimer = null;
+
+function buscarEnFlota(valorCrudo) {
+  const val = (valorCrudo || '').trim().toUpperCase();
+  clearTimeout(buscandoPlacaTimer);
+  if (val.length < 3) { ocultarSugerenciasFlota(); return; }
+
+  buscandoPlacaTimer = setTimeout(async () => {
+    try {
+      const hoy = new Date();
+      const fechaHoy = hoy.getFullYear() + '-' + String(hoy.getMonth()+1).padStart(2,'0') + '-' + String(hoy.getDate()).padStart(2,'0');
+      const url = `${SUPABASE_FLOTA_URL}/rest/v1/monitoreo_flota?placas=ilike.*${encodeURIComponent(val)}*&fecha=eq.${fechaHoy}&select=placas,conductor,telefono,ruta,solicitante,panico,gps,chapa&limit=8`;
+      const res = await fetch(url, {
+        headers: {
+          'apikey': SUPABASE_FLOTA_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_FLOTA_KEY
+        }
+      });
+      if (!res.ok) { ocultarSugerenciasFlota(); return; }
+      const matches = await res.json();
+      mostrarSugerenciasFlota(matches);
+    } catch (e) {
+      // Falla silenciosa: el operador puede seguir digitando manualmente
+      ocultarSugerenciasFlota();
+    }
+  }, 300);
+}
+
+function mostrarSugerenciasFlota(matches) {
+  const box = document.getElementById('placa-sugerencias');
+  if (!matches || !matches.length) { box.style.display = 'none'; box.innerHTML=''; return; }
+  box.innerHTML = matches.map((m, i) => `
+    <div class="sugerencia-item" data-idx="${i}">
+      <span class="placa">${m.placas || ''}</span>
+      <span class="det">${m.conductor || 'sin conductor'} ${m.solicitante ? '· ' + m.solicitante : ''}</span>
+    </div>`).join('');
+  box.style.display = 'block';
+  box.querySelectorAll('.sugerencia-item').forEach((el, i) => {
+    el.onclick = () => seleccionarPlacaFlota(matches[i]);
+  });
+}
+
+function seleccionarPlacaFlota(m) {
+  document.getElementById('f-placa').value = m.placas || '';
+  if (m.conductor) document.getElementById('f-conductor').value = m.conductor;
+  if (m.telefono) document.getElementById('f-celular').value = m.telefono;
+  if (m.ruta) document.getElementById('f-destino').value = m.ruta;
+
+  // Intentar preseleccionar cliente si el select tiene esa opción exacta
+  if (m.solicitante) {
+    const sel = document.getElementById('f-cliente');
+    const opt = Array.from(sel.options).find(o => o.value.toUpperCase() === m.solicitante.toUpperCase() || o.text.toUpperCase() === m.solicitante.toUpperCase());
+    if (opt) sel.value = opt.value;
+  }
+
+  // Badges informativos de equipo (no bloquean nada, solo informan)
+  const badgeBox = document.getElementById('placa-badges');
+  const piezas = [];
+  const fmt = (label, val) => {
+    if (!val || val === 'pendiente' || val === '') return `<span class="badge-equipo badge-no">${label} sin revisar</span>`;
+    if (val === 'tiene') return `<span class="badge-equipo badge-tiene">✓ ${label}</span>`;
+    return `<span class="badge-equipo badge-no">✗ ${label}</span>`;
+  };
+  piezas.push(fmt('Pánico', m.panico));
+  piezas.push(fmt('GPS', m.gps));
+  piezas.push(fmt('Chapa', m.chapa));
+  badgeBox.innerHTML = piezas.join(' ');
+  badgeBox.style.display = 'block';
+
+  ocultarSugerenciasFlota();
+  toast('✓ Datos cargados desde Monitoreo de Flota', 'ok');
+}
+
+function ocultarSugerenciasFlota() {
+  const box = document.getElementById('placa-sugerencias');
+  if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+}
+
+// ═══════════════════════════════════════════
+// CHECKLIST PROTOCOLO DE SALIDA
+// ═══════════════════════════════════════════
+const ESTADOS_CHECKLIST = ['pendiente', 'tiene', 'no_tiene'];
+const ICONOS_CHECKLIST = { pendiente: '🟡', tiene: '🟢', no_tiene: '🔴' };
+const LABELS_CHECKLIST = { panico: 'Pánico', gps: 'GPS', chapa: 'Chapa' };
+
+function toggleChecklist(campo) {
+  const btn = document.getElementById('chk_' + campo);
+  const actual = btn.dataset.estado;
+  const nuevoEstado = ESTADOS_CHECKLIST[(ESTADOS_CHECKLIST.indexOf(actual) + 1) % 3];
+  btn.dataset.estado = nuevoEstado;
+  const texto = nuevoEstado === 'pendiente' ? 'Pendiente' : nuevoEstado === 'tiene' ? 'Tiene' : 'No tiene';
+  btn.textContent = `${ICONOS_CHECKLIST[nuevoEstado]} ${LABELS_CHECKLIST[campo]}: ${texto}`;
+}
+
+function resetChecklist() {
+  ['panico','gps','chapa'].forEach(campo => {
+    const btn = document.getElementById('chk_' + campo);
+    if (!btn) return;
+    btn.dataset.estado = 'pendiente';
+    btn.textContent = `🟡 ${LABELS_CHECKLIST[campo]}: Pendiente`;
+  });
+}
+
+function getChecklistValues() {
+  return {
+    chk_panico: document.getElementById('chk_panico').dataset.estado,
+    chk_gps: document.getElementById('chk_gps').dataset.estado,
+    chk_chapa: document.getElementById('chk_chapa').dataset.estado
+  };
+}
+
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('f-placa');
+  const box = document.getElementById('placa-sugerencias');
+  if (!wrap || !box) return;
+  if (e.target !== wrap && !box.contains(e.target)) ocultarSugerenciasFlota();
+});
 
 function toast(msg, tipo='ok') {
   const t = document.getElementById('toast');
