@@ -1085,8 +1085,25 @@ function seleccionarPlacaFlota(m) {
   badgeBox.innerHTML = piezas.join(' ');
   badgeBox.style.display = 'block';
 
+  // Preseleccionar checklist de protocolo de salida según el equipo real de la placa
+  // (dato viene de monitoreo_flota; el operador puede corregirlo con un clic si algo cambió)
+  aplicarChecklistDesdeFlota('panico', m.panico);
+  aplicarChecklistDesdeFlota('gps', m.gps);
+  aplicarChecklistDesdeFlota('chapa', m.chapa);
+
   ocultarSugerenciasFlota();
   toast('✓ Datos cargados desde Monitoreo de Flota', 'ok');
+}
+
+function aplicarChecklistDesdeFlota(campo, valorFlota) {
+  const btn = document.getElementById('chk_' + campo);
+  if (!btn) return;
+  let nuevoEstado = 'pendiente';
+  if (valorFlota === 'SI') nuevoEstado = 'tiene';
+  else if (valorFlota === 'NO') nuevoEstado = 'no_tiene';
+  btn.dataset.estado = nuevoEstado;
+  const texto = nuevoEstado === 'pendiente' ? 'Pendiente' : nuevoEstado === 'tiene' ? 'Tiene' : 'No tiene';
+  btn.textContent = `${ICONOS_CHECKLIST[nuevoEstado]} ${LABELS_CHECKLIST[campo]}: ${texto}`;
 }
 
 function ocultarSugerenciasFlota() {
