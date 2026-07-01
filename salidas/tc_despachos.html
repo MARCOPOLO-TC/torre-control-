@@ -1075,8 +1075,8 @@ function seleccionarPlacaFlota(m) {
   const badgeBox = document.getElementById('placa-badges');
   const piezas = [];
   const fmt = (label, val) => {
-    if (!val || val === 'pendiente' || val === '') return `<span class="badge-equipo badge-no">${label} sin revisar</span>`;
-    if (val === 'tiene') return `<span class="badge-equipo badge-tiene">✓ ${label}</span>`;
+    if (!val || val === '') return `<span class="badge-equipo badge-no">${label} sin revisar</span>`;
+    if (val === 'SI') return `<span class="badge-equipo badge-tiene">✓ ${label}</span>`;
     return `<span class="badge-equipo badge-no">✗ ${label}</span>`;
   };
   piezas.push(fmt('Pánico', m.panico));
