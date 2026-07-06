@@ -976,7 +976,7 @@ async function submitForm(){
   const tempId = genId();
   const rep={ts:new Date().toISOString(),fecha,ejecutivo,centro,area:SEL_AREA,tipo,severidad:SEL_SEV,descripcion:desc,archivos:[],estado:"Pendiente"};
   try{
-    const inserted=await sbFetch("seg_reportes",{method:"POST",body:JSON.stringify(rep)});
+    const inserted=await sbFetch("seg_reportes",{method:"POST",headers:{"Prefer":"return=minimal"},body:JSON.stringify(rep)});
     if(inserted&&inserted[0])rep.id=inserted[0].id;
     else rep.id=tempId;
   }catch(e){
