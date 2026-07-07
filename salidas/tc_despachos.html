@@ -1026,9 +1026,14 @@ function buscarEnFlota(valorCrudo) {
 
   buscandoPlacaTimer = setTimeout(async () => {
     try {
+      // Ventana de 7 días: cubre vehículos en taller, descanso, fin de semana, etc.
+      // sin traer historial innecesario (un vehículo real no debería estar
+      // más de una semana sin ningún registro de monitoreo).
       const hoy = new Date();
-      const fechaHoy = hoy.getFullYear() + '-' + String(hoy.getMonth()+1).padStart(2,'0') + '-' + String(hoy.getDate()).padStart(2,'0');
-      const url = `${SUPABASE_FLOTA_URL}/rest/v1/monitoreo_flota?placas=ilike.*${encodeURIComponent(val)}*&fecha=eq.${fechaHoy}&select=placas,conductor,telefono,ruta,solicitante,panico,gps,chapa&limit=8`;
+      const desde = new Date(hoy);
+      desde.setDate(desde.getDate() - 7);
+      const fechaDesde = desde.getFullYear() + '-' + String(desde.getMonth()+1).padStart(2,'0') + '-' + String(desde.getDate()).padStart(2,'0');
+      const url = `${SUPABASE_FLOTA_URL}/rest/v1/monitoreo_flota?placas=ilike.*${encodeURIComponent(val)}*&fecha=gte.${fechaDesde}&select=placas,conductor,telefono,ruta,solicitante,panico,gps,chapa,fecha&order=fecha.desc&limit=40`;
       const res = await fetch(url, {
         headers: {
           'apikey': SUPABASE_FLOTA_KEY,
@@ -1036,7 +1041,18 @@ function buscarEnFlota(valorCrudo) {
         }
       });
       if (!res.ok) { ocultarSugerenciasFlota(); return; }
-      const matches = await res.json();
+      const rows = await res.json();
+      // Deduplicar: como viene ordenado por fecha descendente, la primera
+      // aparición de cada placa es automáticamente su registro más reciente.
+      const vistas = new Set();
+      const matches = [];
+      for (const r of rows) {
+        if (!vistas.has(r.placas)) {
+          vistas.add(r.placas);
+          matches.push(r);
+          if (matches.length >= 8) break;
+        }
+      }
       mostrarSugerenciasFlota(matches);
     } catch (e) {
       // Falla silenciosa: el operador puede seguir digitando manualmente
