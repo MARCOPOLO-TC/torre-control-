@@ -348,6 +348,7 @@ td{padding:11px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
             <p style="font-size:11px;color:#909090;margin-top:2px">Máx. 3 archivos · 10 MB · Word, Excel, PPT, PDF, Imagen, Video, Audio</p>
           </div>
           <input id="f-files" type="file" multiple style="display:none" accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.pdf,image/*,video/*,audio/*" onchange="addFiles(this.files)"/>
+          <div id="file-warning" style="display:none;margin-top:8px;padding:10px 12px;background:#fdecea;border:1px solid #f3b4ac;border-radius:8px;font-size:12.5px;color:#8a2e22;"></div>
           <div id="file-list"></div>
         </div>
       </div>
@@ -589,6 +590,14 @@ const SB_URL = "https://cnzldoetdehaflihrswi.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuemxkb2V0ZGVoYWZsaWhyc3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNjIwNDIsImV4cCI6MjA5NTYzODA0Mn0.FltL4aNuTr0vAJcHtROeY5QyBB3WRb8UjHwGyFD-B5E";
 
 const sbAuth = supabase.createClient(SB_URL, SB_KEY);
+// Cliente separado SOLO para subir evidencia. sbAuth arrastra la sesión de
+// admin cuando alguien queda logueado en el navegador, y eso hace que las
+// subidas usen el rol "authenticated" en vez de "anon" — rol que las
+// políticas RLS del bucket "evidencias" (compartido con despachos) NO
+// permiten para INSERT. Con auth.persistSession:false este cliente nunca
+// adopta sesión ninguna: siempre sube como anon, igual que el formulario
+// público de reportes necesita.
+const sbStorage = supabase.createClient(SB_URL, SB_KEY, {auth:{persistSession:false}});
 let currentSession = null;
 sbAuth.auth.onAuthStateChange((event, session)=>{
   currentSession = session;
@@ -912,15 +921,67 @@ function selArea(v,btn){
   document.querySelectorAll("[id^='ar-']").forEach(b=>b.className="rbtn");
   btn.className="rbtn "+(v==="ALMACENAMIENTO"?"g":v==="COPACKING"?"b":"a");
 }
-function addFiles(files){
-  const MAX_SIZE=10*1024*1024; // 10 MB
+const MAX_SIZE=10*1024*1024; // 10 MB — límite final tras comprimir
+const IMG_COMPRESS_THRESHOLD=1.5*1024*1024; // a partir de 1.5MB se intenta comprimir imágenes
+const IMG_MAX_DIM=1920; // lado máximo en px
+
+// Comprime una imagen en el navegador (canvas) para que fotos de celular
+// de alta resolución no se descarten por pasar de 10MB.
+function compressImage(file){
+  return new Promise((resolve)=>{
+    if(!file.type.startsWith("image/") || file.size<=IMG_COMPRESS_THRESHOLD){
+      resolve(file); return;
+    }
+    const img=new Image();
+    const reader=new FileReader();
+    reader.onload=(e)=>{
+      img.onload=()=>{
+        let {width,height}=img;
+        if(width>IMG_MAX_DIM||height>IMG_MAX_DIM){
+          if(width>height){height=Math.round(height*IMG_MAX_DIM/width);width=IMG_MAX_DIM;}
+          else{width=Math.round(width*IMG_MAX_DIM/height);height=IMG_MAX_DIM;}
+        }
+        const canvas=document.createElement("canvas");
+        canvas.width=width;canvas.height=height;
+        canvas.getContext("2d").drawImage(img,0,0,width,height);
+        canvas.toBlob((blob)=>{
+          if(!blob){resolve(file);return;}
+          const compressed=new File([blob], file.name.replace(/\.[^.]+$/,"")+".jpg", {type:"image/jpeg"});
+          resolve(compressed.size<file.size?compressed:file);
+        },"image/jpeg",0.8);
+      };
+      img.onerror=()=>resolve(file);
+      img.src=e.target.result;
+    };
+    reader.onerror=()=>resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
+
+function showFileWarning(msg){
+  const w=document.getElementById("file-warning");
+  if(!msg){w.style.display="none";w.textContent="";return;}
+  w.style.display="block";
+  w.innerHTML="⚠️ "+msg;
+}
+
+async function addFiles(files){
   const incoming=Array.from(files);
-  const tooBig=incoming.filter(f=>f.size>MAX_SIZE);
-  const ok=incoming.filter(f=>f.size<=MAX_SIZE);
-  if(tooBig.length){
-    toast(`${tooBig.length} archivo(s) superan 10 MB y no se agregaron: ${tooBig.map(f=>f.name).join(", ")}`,"err");
+  const zone=document.querySelector(".upload-zone");
+  showFileWarning(null);
+  if(zone) zone.style.opacity="0.6";
+  const processed=[];
+  const stillTooBig=[];
+  for(const f of incoming){
+    const c=await compressImage(f);
+    if(c.size>MAX_SIZE) stillTooBig.push(f);
+    else processed.push(c);
   }
-  uploadedFiles=[...uploadedFiles,...ok].slice(0,3);
+  if(zone) zone.style.opacity="1";
+  if(stillTooBig.length){
+    showFileWarning(`${stillTooBig.length} archivo(s) superan 10 MB incluso tras comprimir y NO se adjuntaron: ${stillTooBig.map(f=>f.name).join(", ")}. Este aviso se mantiene hasta que lo cierres — revisa antes de enviar el reporte.`);
+  }
+  uploadedFiles=[...uploadedFiles,...processed].slice(0,3);
   renderFileList();
 }
 function removeFile(n){uploadedFiles=uploadedFiles.filter(f=>f.name!==n);renderFileList();}
@@ -928,7 +989,7 @@ function renderFileList(){
   document.getElementById("file-list").innerHTML=uploadedFiles.map(f=>`
     <div class="file-chip">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#0f6e56" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-      <span>${escapeHtml(f.name)}</span>
+      <span>${escapeHtml(f.name)} <span style="color:#909090">(${(f.size/1024/1024).toFixed(1)} MB)</span></span>
       <button class="ic-btn" onclick="removeFile('${f.name.replace(/'/g,"&#39;")}')">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
@@ -941,24 +1002,46 @@ function escapeHtml(str){
 }
 
 // ── SUPABASE STORAGE UPLOAD ───────────────────────────────────────────────
-async function uploadFileToStorage(file, reporteId){
-  // Nombre único: reporteId/timestamp_nombre.ext
-  const ext = file.name.split(".").pop();
+// Reescrito con el SDK supabase-js (ya cargado como `sbAuth`) en vez de
+// fetch() manual: maneja mejor los errores de red y usa automáticamente
+// la sesión activa si existe. Incluye reintentos y un timeout, porque una
+// subida colgada sin límite de tiempo dejaba al usuario esperando sin saber
+// si siguió o se cayó la conexión.
+async function uploadFileToStorage(file, reporteId, maxRetries=2){
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g,"_");
   const path = `reportes/${reporteId}/${Date.now()}_${safeName}`;
-  const res = await fetch(`${SB_URL}/storage/v1/object/evidencias/${path}`, {
-    method:"POST",
-    headers:{
-      "apikey": SB_KEY,
-      "Authorization": "Bearer " + SB_KEY,
-      "Content-Type": file.type || "application/octet-stream",
-      "x-upsert": "true"
-    },
-    body: file
+
+  for(let intento=1;intento<=maxRetries+1;intento++){
+    try{
+      const timeoutMs=30000;
+      const uploadPromise = sbStorage.storage.from("evidencias").upload(path, file, {
+        upsert:true,
+        contentType: file.type || "application/octet-stream"
+      });
+      const timeoutPromise = new Promise((_,rej)=>setTimeout(()=>rej(new Error("Tiempo de espera agotado (30s)")), timeoutMs));
+      const {error} = await Promise.race([uploadPromise, timeoutPromise]);
+      if(error) throw error;
+      const {data:pub} = sbStorage.storage.from("evidencias").getPublicUrl(path);
+      return pub.publicUrl;
+    }catch(e){
+      console.warn(`Fallo al subir ${file.name} (intento ${intento}/${maxRetries+1}):`, e.message||e);
+      if(intento===maxRetries+1) throw new Error(e.message||"Error desconocido al subir archivo");
+      await new Promise(r=>setTimeout(r,1000*intento));
+    }
+  }
+}
+
+// Sube varios archivos EN PARALELO (antes era secuencial: un archivo lento
+// bloqueaba a los demás). Devuelve {urls, errores} sin lanzar excepción,
+// para que el reporte siempre se pueda guardar aunque falle una foto.
+async function uploadEvidencia(files, reporteId){
+  const resultados = await Promise.allSettled(files.map(f=>uploadFileToStorage(f, reporteId)));
+  const urls=[], errores=[];
+  resultados.forEach((r,i)=>{
+    if(r.status==="fulfilled") urls.push(r.value);
+    else{ errores.push(files[i].name+": "+r.reason.message); urls.push(files[i].name); }
   });
-  if(!res.ok){ const e=await res.text(); throw new Error("Upload error: "+e); }
-  // URL pública
-  return `${SB_URL}/storage/v1/object/public/evidencias/${path}`;
+  return {urls, errores};
 }
 
 async function submitForm(){
@@ -976,7 +1059,7 @@ async function submitForm(){
   const tempId = genId();
   const rep={ts:new Date().toISOString(),fecha,ejecutivo,centro,area:SEL_AREA,tipo,severidad:SEL_SEV,descripcion:desc,archivos:[],estado:"Pendiente"};
   try{
-    const inserted=await sbFetch("seg_reportes",{method:"POST",headers:{"Prefer":"return=minimal"},body:JSON.stringify(rep)});
+    const inserted=await sbFetch("seg_reportes",{method:"POST",body:JSON.stringify(rep)});
     if(inserted&&inserted[0])rep.id=inserted[0].id;
     else rep.id=tempId;
   }catch(e){
@@ -986,28 +1069,32 @@ async function submitForm(){
   }
 
   // Subir archivos a Supabase Storage
+  let evidenciaFallo=false;
   if(uploadedFiles.length>0){
     btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Subiendo archivos...';
-    const urls=[];
-    let uploadErrors=[];
-    for(const file of uploadedFiles){
-      try{
-        const url=await uploadFileToStorage(file, rep.id);
-        urls.push(url);
-      }catch(e){
-        console.error("No se pudo subir:",file.name,e);
-        uploadErrors.push(file.name+": "+e.message);
-        urls.push(file.name); // fallback: solo el nombre
-      }
-    }
+    const {urls, errores:uploadErrors} = await uploadEvidencia(uploadedFiles, rep.id);
     if(uploadErrors.length>0){
-      toast("Error al subir evidencia ("+uploadErrors.length+"): "+uploadErrors[0],"err");
+      evidenciaFallo=true;
+      showFileWarning("Error al subir evidencia ("+uploadErrors.length+"): "+uploadErrors[0]+". El reporte se guardará, pero vuelve a adjuntar la foto o avisa a Torre de Control.");
     }
     rep.archivos=urls;
-    // Actualizar el reporte en Supabase con las URLs
-    try{
-      await sbFetch("seg_reportes?id=eq."+rep.id,{method:"PATCH",body:JSON.stringify({archivos:urls})});
-    }catch(e){console.warn("No se pudo actualizar archivos en DB:",e);}
+    // Actualizar el reporte en Supabase con las URLs — con reintentos,
+    // porque antes esto fallaba en silencio (solo console.warn) y la
+    // evidencia se perdía sin que nadie se enterara.
+    let patchOk=false;
+    for(let intento=1;intento<=3&&!patchOk;intento++){
+      try{
+        await sbFetch("seg_reportes?id=eq."+rep.id,{method:"PATCH",body:JSON.stringify({archivos:urls})});
+        patchOk=true;
+      }catch(e){
+        console.warn(`No se pudo actualizar archivos en DB (intento ${intento}/3):`,e);
+        if(intento<3) await new Promise(r=>setTimeout(r,1000*intento));
+      }
+    }
+    if(!patchOk){
+      evidenciaFallo=true;
+      showFileWarning("⚠️ El reporte se guardó pero la evidencia NO se pudo adjuntar tras 3 intentos (posible problema de conexión). Vuelve a intentar el envío o avisa a Torre de Control para revisar este reporte (ID "+rep.id+").");
+    }
   }
 
   REPORTS.unshift(rep);
@@ -1031,6 +1118,7 @@ async function submitForm(){
   SEL_SEV="";SEL_AREA="";uploadedFiles=[];
   document.querySelectorAll("[id^='sv-'],[id^='ar-']").forEach(b=>b.className="rbtn");
   renderFileList();
+  if(!evidenciaFallo) showFileWarning(null);
   btn.disabled=false;
   btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar reporte';
   const sb=document.getElementById("success-banner");sb.style.display="flex";
