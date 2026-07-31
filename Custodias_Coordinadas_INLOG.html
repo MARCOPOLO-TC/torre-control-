@@ -195,6 +195,8 @@ input[type=time],input[type=date]{font-family:'JetBrains Mono';}
 .toggle.on-reaccion .dot{background:var(--amber);}
 .toggle.on-cabina{background:var(--violet-dim);border-color:var(--violet);color:var(--violet);}
 .toggle.on-cabina .dot{background:var(--violet);}
+.toggle.on-candado{background:var(--teal-dim);border-color:var(--teal);color:var(--teal);}
+.toggle.on-candado .dot{background:var(--teal);}
 .toggle:hover{color:var(--text);}
 
 .avz-chip{
@@ -376,7 +378,7 @@ input:disabled,select:disabled{
     <div class="brand-mark">TC</div>
     <div class="brand-text">
       <div class="t1">Torre de Control · INLOG</div>
-      <div class="t2">Custodias Coordinadas <span style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono';font-weight:400;">build 2026-07-25.2</span></div>
+      <div class="t2">Custodias Coordinadas <span style="font-size:11px;color:var(--muted);font-family:'JetBrains Mono';font-weight:400;">build 2026-07-30.1</span></div>
     </div>
   </div>
   <div class="tabs">
@@ -665,12 +667,31 @@ fillDatalist('dl-solicitante', LISTAS.SOLICITANTE);
 fillDatalist('dl-proveedor', LISTAS.PROVEEDOR_BASE);
 
 // ============ Camiones ============
+function inferFechaLlegada(fechaBase, horaSalida, horaLlegada){
+  // Si no hay fecha de llegada explícita, se infiere a partir de la fecha del viaje.
+  // Si la hora de llegada es menor que la hora de salida, el viaje cruzó medianoche
+  // y la llegada corresponde al día siguiente.
+  if(!fechaBase) return fechaBase;
+  if(horaSalida && horaLlegada){
+    const [hs, ms] = horaSalida.split(':').map(Number);
+    const [hl, ml] = horaLlegada.split(':').map(Number);
+    if(!isNaN(hs) && !isNaN(ms) && !isNaN(hl) && !isNaN(ml)){
+      const minSalida = hs*60+ms, minLlegada = hl*60+ml;
+      if(minLlegada < minSalida){
+        const d = new Date(fechaBase + 'T00:00:00');
+        d.setDate(d.getDate()+1);
+        return d.toISOString().slice(0,10);
+      }
+    }
+  }
+  return fechaBase;
+}
 function addCamion(){
   state.camionSeq++;
   state.camiones.push({
     id: uid('cam'), placa:'', operador:'', cuenta:'', origen:'', horaCitacion:'',
     horaSalida:'', destino:'', fechaLlegada:'', horaLlegada:'', observacion:'',
-    reaccion:false, cabina:false
+    reaccion:false, cabina:false, candado:false
   });
   renderCamiones();
   renderManifest();
@@ -755,6 +776,7 @@ function renderCamiones(){
       <div class="badge-row">
         <button class="toggle ${cam.reaccion?'on-reaccion':''}" data-toggle="reaccion"><span class="dot"></span>Reacción</button>
         <button class="toggle ${cam.cabina?'on-cabina':''}" data-toggle="cabina"><span class="dot"></span>Cabina</button>
+        <button class="toggle ${cam.candado?'on-candado':''}" data-toggle="candado"><span class="dot"></span>Candado Satelital</button>
         ${groupsOfCam.map(g=>`<span class="avz-chip" style="border-color:${g.color};background:${g.color}22;color:${g.color}">🛡 ${g.nombre}</span>`).join('')}
       </div>
       <datalist id="dl-placa-${cam.id}">${LISTAS.__PLACAS ? LISTAS.__PLACAS.map(p=>`<option value="${p}">`).join('') : ''}</datalist>
@@ -919,12 +941,13 @@ document.getElementById('btn-guardar').addEventListener('click', ()=>{
   const viaje = {
     id: uid('viaje'), solicitante, fecha, proveedor,
     camiones: state.camiones.map(c=>({...c,
+      fechaLlegada: c.fechaLlegada || inferFechaLlegada(fecha, c.horaSalida, c.horaLlegada),
       grupos: state.avanzadas.filter(g=>g.camionIds.includes(c.id)).map(g=>g.nombre)
     })),
     avanzadas: state.avanzadas.map(g=>({...g}))
   };
   state.viajesGuardados.push(viaje);
-  logAudit('Viaje guardado', `${solicitante} · ${proveedor} · ${fecha} · ${viaje.camiones.length} camión(es): ${viaje.camiones.map(c=>c.placa).join(', ')}`);
+  logAudit('Viaje guardado', `${solicitante} · ${proveedor} · ${fecha} · ${viaje.camiones.length} camión(es): ${viaje.camiones.map(c=>c.placa + (c.candado?' [candado]':'')).join(', ')}`);
   if(cloudConfig().auto) backupViajeToCloud(viaje);
 
   // reset for next viaje
@@ -957,7 +980,7 @@ function renderSavedTable(){
     wrap.innerHTML = filterBar + `<div class="empty-note">${mostrarTodosGuardados ? 'Aún no hay viajes guardados.' : 'No hay viajes guardados con fecha de hoy (' + hoy + '). Prueba "Ver todos".'}</div>`;
   } else {
     wrap.innerHTML = filterBar + `<table>
-      <thead><tr><th>Fecha</th><th>Solicitante</th><th>Proveedor</th><th>Camiones</th><th>Nube</th><th></th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Solicitante</th><th>Proveedor</th><th>Camiones</th><th>Placas</th><th>Nube</th><th></th></tr></thead>
       <tbody>
         ${lista.map(v=>{
           const cloudIcon = v.cloudStatus==='ok' ? '<span title="Respaldado" style="color:var(--ok)">☁️ ✓</span>'
@@ -970,6 +993,7 @@ function renderSavedTable(){
             <td>${v.solicitante}</td>
             <td>${v.proveedor}</td>
             <td>${v.camiones.length}</td>
+            <td class="mono">${v.camiones.map(c=>c.placa||'—').join(', ')}</td>
             <td>${cloudIcon}</td>
             <td><button class="small-del" onclick="deleteViaje('${v.id}')">Eliminar</button></td>
           </tr>`;
@@ -1049,16 +1073,24 @@ document.getElementById('btn-exportar').addEventListener('click', ()=>{
         'ORIGEN': cam.origen,
         'HORA DE SALIDA REAL': cam.horaSalida,
         'DESTINO': cam.destino,
-        'FECHA DE LLEGADA': cam.fechaLlegada,
+        'FECHA DE LLEGADA': cam.fechaLlegada || inferFechaLlegada(v.fecha, cam.horaSalida, cam.horaLlegada),
         'HORA DE LLEGADA': cam.horaLlegada,
         'CUENTA': cam.cuenta,
         'OPERADOR': cam.operador,
         'OBSERVACION': cam.observacion
       };
-      if(cam.reaccion) rows.push({...base, 'PROVEEDOR DE CUSTODIA': v.proveedor, 'TIPO': 'REACCIÓN', 'PLACAS CUBIERTAS': cam.placa});
-      if(cam.cabina) rows.push({...base, 'PROVEEDOR DE CUSTODIA': v.proveedor + ' CABINA', 'TIPO': 'CABINA', 'PLACAS CUBIERTAS': cam.placa});
+      // El candado es un atributo del camión (placa), no de cada fila TIPO.
+      // Se muestra una sola vez por placa para no dar la impresión de más candados de los reales.
+      let candadoMostrado = false;
+      const candadoCell = ()=>{
+        if(candadoMostrado) return '';
+        candadoMostrado = true;
+        return cam.candado ? 'SI' : 'NO';
+      };
+      if(cam.reaccion) rows.push({...base, 'CANDADO SATELITAL': candadoCell(), 'PROVEEDOR DE CUSTODIA': v.proveedor, 'TIPO': 'REACCIÓN', 'PLACAS CUBIERTAS': cam.placa});
+      if(cam.cabina) rows.push({...base, 'CANDADO SATELITAL': candadoCell(), 'PROVEEDOR DE CUSTODIA': v.proveedor + ' CABINA', 'TIPO': 'CABINA', 'PLACAS CUBIERTAS': cam.placa});
       if(!cam.reaccion && !cam.cabina && (!cam.grupos || cam.grupos.length===0)){
-        rows.push({...base, 'PROVEEDOR DE CUSTODIA': v.proveedor, 'TIPO': 'SIN CUSTODIA ASIGNADA', 'PLACAS CUBIERTAS': cam.placa});
+        rows.push({...base, 'CANDADO SATELITAL': candadoCell(), 'PROVEEDOR DE CUSTODIA': v.proveedor, 'TIPO': 'SIN CUSTODIA ASIGNADA', 'PLACAS CUBIERTAS': cam.placa});
       }
     });
     // 2) Una sola fila por GRUPO DE AVANZADA, agrupando todas las placas que cubre
@@ -1069,6 +1101,7 @@ document.getElementById('btn-exportar').addEventListener('click', ()=>{
       rows.push({
         'SOLICITANTE DE CUSTODIA': v.solicitante,
         'FECHA DE CUSTODIA': v.fecha,
+        'CANDADO SATELITAL': rep.candado ? 'SI' : 'NO',
         'PROVEEDOR DE CUSTODIA': v.proveedor + ' AVANZADA',
         'TIPO': 'AVANZADA (' + g.nombre + ')',
         'PLACAS CUBIERTAS': camionesDelGrupo.map(c=>c.placa).join(' / '),
@@ -1076,7 +1109,7 @@ document.getElementById('btn-exportar').addEventListener('click', ()=>{
         'ORIGEN': rep.origen,
         'HORA DE SALIDA REAL': rep.horaSalida,
         'DESTINO': rep.destino,
-        'FECHA DE LLEGADA': rep.fechaLlegada,
+        'FECHA DE LLEGADA': rep.fechaLlegada || inferFechaLlegada(v.fecha, rep.horaSalida, rep.horaLlegada),
         'HORA DE LLEGADA': rep.horaLlegada,
         'CUENTA': rep.cuenta,
         'OPERADOR': rep.operador,
@@ -1085,8 +1118,8 @@ document.getElementById('btn-exportar').addEventListener('click', ()=>{
     });
   });
 
-  const ws = XLSX.utils.json_to_sheet(rows, {header:['SOLICITANTE DE CUSTODIA','FECHA DE CUSTODIA','PROVEEDOR DE CUSTODIA','TIPO','PLACAS CUBIERTAS','HORA DE CITACION','ORIGEN','HORA DE SALIDA REAL','DESTINO','FECHA DE LLEGADA','HORA DE LLEGADA','CUENTA','OPERADOR','OBSERVACION']});
-  ws['!cols'] = [{wch:22},{wch:14},{wch:20},{wch:22},{wch:26},{wch:14},{wch:20},{wch:16},{wch:22},{wch:14},{wch:14},{wch:14},{wch:16},{wch:40}];
+  const ws = XLSX.utils.json_to_sheet(rows, {header:['SOLICITANTE DE CUSTODIA','FECHA DE CUSTODIA','CANDADO SATELITAL','PROVEEDOR DE CUSTODIA','TIPO','PLACAS CUBIERTAS','HORA DE CITACION','ORIGEN','HORA DE SALIDA REAL','DESTINO','FECHA DE LLEGADA','HORA DE LLEGADA','CUENTA','OPERADOR','OBSERVACION']});
+  ws['!cols'] = [{wch:22},{wch:14},{wch:16},{wch:20},{wch:22},{wch:26},{wch:14},{wch:20},{wch:16},{wch:22},{wch:14},{wch:14},{wch:14},{wch:16},{wch:40}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Custodias');
 
@@ -1385,6 +1418,7 @@ function filasSupabaseViaje(viaje){
   viaje.camiones.forEach(cam=>{
     const base = {
       viaje_local_id: viaje.id, fecha: viaje.fecha, solicitante: viaje.solicitante,
+      candado_satelital: cam.candado ? 'SI' : 'NO',
       operador: cam.operador, cuenta: cam.cuenta, origen: cam.origen, destino: cam.destino,
       hora_citacion: cam.horaCitacion, hora_salida: cam.horaSalida, hora_llegada: cam.horaLlegada,
       observacion: cam.observacion
@@ -1401,6 +1435,7 @@ function filasSupabaseViaje(viaje){
     const rep = del[0];
     rows.push({
       viaje_local_id: viaje.id, fecha: viaje.fecha, solicitante: viaje.solicitante,
+      candado_satelital: rep.candado ? 'SI' : 'NO',
       proveedor: viaje.proveedor + ' AVANZADA', tipo: 'AVANZADA', placa: null,
       placas_cubiertas: del.map(c=>c.placa).join(' / '), grupo_avanzada: g.nombre,
       operador: rep.operador, cuenta: rep.cuenta, origen: rep.origen, destino: rep.destino,
@@ -1484,7 +1519,8 @@ async function cargarDesdeNube(mostrarToast){
             id: uid('cam'), placa: f.placa, operador: f.operador||'', cuenta: f.cuenta||'',
             origen: f.origen||'', horaCitacion: f.hora_citacion||'', horaSalida: f.hora_salida||'',
             destino: f.destino||'', fechaLlegada: '', horaLlegada: f.hora_llegada||'',
-            observacion: f.observacion||'', reaccion:false, cabina:false, grupos:[]
+            observacion: f.observacion||'', reaccion:false, cabina:false,
+            candado: f.candado_satelital === 'SI', grupos:[]
           };
         }
         if(f.tipo==='REACCIÓN') porPlaca[f.placa].reaccion = true;
