@@ -624,7 +624,7 @@ function showApp() {
   document.getElementById('btn-admin-nav').style.display = isSup ? 'inline-flex' : 'none';
   document.getElementById('nav-admin').style.display     = isSup ? 'block' : 'none';
 
-  const hoy = new Date().toISOString().slice(0,10);
+  const d=new Date(); const hoy=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   document.getElementById('f-fecha').value    = hoy;
   document.getElementById('f-grab-ini').value = hoy;
   document.getElementById('f-grab-fin').value = hoy;
@@ -738,7 +738,7 @@ async function loadRecords() {
    KPIs
 ══════════════════════════════════════════════════════════════ */
 function updateKPIs() {
-  const hoy = new Date().toISOString().slice(0,10);
+  const d=new Date(); const hoy=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   document.getElementById('k-hoy').textContent   = allRecords.filter(r=>r.fecha===hoy).length;
   document.getElementById('k-total').textContent  = allRecords.length;
   document.getElementById('k-nov').textContent    = allRecords.filter(r=>r.novedad).length;
@@ -837,7 +837,7 @@ function setProgress(p){document.getElementById('prog-bar').style.width=p+'%';}
 function resetForm(){
   document.getElementById('f-centro').value='';
   updateEquipos();
-  const hoy=new Date().toISOString().slice(0,10);
+  const d=new Date(); const hoy=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   document.getElementById('f-fecha').value=hoy;
   document.getElementById('f-grab-ini').value=hoy;
   document.getElementById('f-grab-fin').value=hoy;
@@ -1143,7 +1143,7 @@ function eliminarEquipo(id, nombre, centroId){
    RESUMEN ADMIN
 ══════════════════════════════════════════════════════════════ */
 async function loadAdminSummary(){
-  const hoy    = new Date().toISOString().slice(0,10);
+  const d=new Date(); const hoy=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const opsAct = allOperadores.filter(o=>o.activo).length;
   const ctrAct = allCentros.filter(c=>c.activo).length;
   const eqAct  = allEquipos.filter(e=>e.activo).length;
