@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Registro CCTV — INLOG S.A. | Torre de Control</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+:root{
+  --navy:#16233F; --navy-2:#1E3258; --navy-3:#212F4C;
+  --gold:#B8860B; --gold-light:#D4A73C;
+  --steel:#4A6FA5; --ember:#C0392B; --good:#2E7D5B;
+  --teal:#38DCB0; --teal-dark:#1faa85;
+  --bg:#F0F2F5; --card:#FFFFFF; --ink:#1F2733; --muted:#667085; --line:#E3E7ED;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--ink);font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;font-size:14px;min-height:100vh;}
+b,strong{font-weight:600;}
+
+/* HEADER */
+header.top{background:linear-gradient(120deg,var(--navy) 0%,var(--navy-2) 100%);color:#fff;padding:14px 22px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+  position:sticky;top:0;z-index:200;box-shadow:0 2px 14px rgba(0,0,0,0.18);}
+.brandline{display:flex;align-items:baseline;gap:8px;margin-bottom:2px;}
+.co{font-family:Georgia,serif;font-weight:700;font-size:14px;color:var(--gold-light);}
+.div-label{font-size:11px;color:rgba(255,255,255,0.5);font-style:italic;}
+header h1{font-family:Georgia,serif;font-size:17px;font-weight:700;color:#fff;margin:0;}
+.header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+#user-avatar{width:32px;height:32px;border-radius:50%;background:var(--gold);color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+#user-name{font-size:12.5px;color:rgba(255,255,255,0.85);font-weight:600;}
+.btn-header{background:rgba(255,255,255,0.12);color:#fff;border:1px solid rgba(255,255,255,0.25);border-radius:6px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:inherit;}
+.btn-header:hover{background:rgba(255,255,255,0.2);}
+.btn-header.admin-btn{background:rgba(184,134,11,0.35);border-color:var(--gold-light);}
+.btn-header.admin-btn:hover{background:rgba(184,134,11,0.5);}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);animation:pulse 2s infinite;display:inline-block;margin-right:3px;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.3);}}
+.live-label{font-size:10.5px;color:var(--teal);}
+.sup-badge{background:var(--gold);color:#fff;font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:4px;}
+
+/* NAV TABS (main) */
+.main-nav{background:var(--navy-3);display:flex;gap:2px;padding:0 22px;}
+.main-nav .mnav{padding:10px 18px;font-size:12.5px;font-weight:600;color:rgba(255,255,255,0.55);cursor:pointer;border-bottom:2px solid transparent;transition:.15s;}
+.main-nav .mnav:hover{color:#fff;}
+.main-nav .mnav.active{color:#fff;border-bottom-color:var(--gold-light);}
+.main-nav .mnav.admin-tab{color:var(--gold-light);}
+.main-nav .mnav.admin-tab.active{border-bottom-color:var(--gold-light);}
+
+/* LOGIN */
+#login-screen{position:fixed;inset:0;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-3) 60%,#0d1827 100%);display:flex;align-items:center;justify-content:center;z-index:999;}
+.login-card{background:#fff;border-radius:14px;padding:34px 38px;width:370px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,0.4);}
+.login-logo .co-big{font-family:Georgia,serif;font-size:21px;font-weight:700;color:var(--navy);text-align:center;}
+.login-logo .subtitle{font-size:11.5px;color:var(--muted);margin-top:3px;text-align:center;margin-bottom:22px;}
+.login-card h2{font-family:Georgia,serif;font-size:16px;color:var(--navy);margin-bottom:18px;text-align:center;}
+.fgrp{margin-bottom:14px;}
+.fgrp label{display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:5px;}
+.fgrp select,.fgrp input{width:100%;height:39px;padding:0 11px;border:1px solid var(--line);border-radius:7px;font-size:13px;font-family:inherit;color:var(--ink);background:#FAFBFC;}
+.fgrp select:focus,.fgrp input:focus{outline:none;border-color:var(--steel);}
+.btn-login{width:100%;height:43px;background:var(--navy);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;}
+.btn-login:hover{background:var(--navy-2);}
+.login-err{color:var(--ember);font-size:12px;text-align:center;margin-top:9px;min-height:16px;}
+
+/* WRAP */
+.wrap{padding:16px 22px 50px;max-width:1420px;margin:0 auto;}
+.section{display:none;}
+.section.active{display:block;}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:16px;}
+.card-header{background:var(--navy);color:#fff;padding:12px 17px;display:flex;align-items:center;gap:8px;}
+.card-header h2{font-family:Georgia,serif;font-size:13.5px;font-weight:700;margin:0;flex:1;}
+.card-body{padding:16px;}
+
+/* KPIs */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+@media(max-width:700px){.kpi-row{grid-template-columns:repeat(2,1fr);}}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:11px 13px;position:relative;overflow:hidden;}
+.kpi::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;background:var(--gold);}
+.kpi.nov::before{background:var(--ember);}
+.kpi.ok::before{background:var(--good);}
+.kpi.live::before{background:var(--teal);}
+.kpi .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px;font-weight:700;}
+.kpi .val{font-family:Georgia,serif;font-size:21px;font-weight:700;color:var(--navy);}
+.kpi.nov .val{color:var(--ember);}
+.kpi.ok .val{color:var(--good);}
+.kpi.live .val{color:var(--teal-dark);}
+
+/* TWO COL */
+.two-col{display:grid;grid-template-columns:370px 1fr;gap:16px;align-items:start;}
+@media(max-width:900px){.two-col{grid-template-columns:1fr;}}
+
+/* FORM */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.fld{margin-bottom:13px;}
+.fld label{display:block;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:5px;}
+.fld select,.fld input,.fld textarea{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:7px;font-size:12.5px;font-family:inherit;color:var(--ink);background:#FAFBFC;}
+.fld select:focus,.fld input:focus,.fld textarea:focus{outline:none;border-color:var(--steel);}
+.fld textarea{resize:vertical;min-height:75px;line-height:1.5;}
+.nov-toggle{display:flex;gap:8px;margin-top:2px;}
+.nov-opt{flex:1;border:2px solid var(--line);border-radius:8px;padding:9px 6px;text-align:center;cursor:pointer;font-size:12px;font-weight:700;color:var(--muted);transition:.15s;}
+.nov-opt.active-ok{border-color:var(--good);background:#EAF3EE;color:var(--good);}
+.nov-opt.active-nov{border-color:var(--ember);background:#FBEAEA;color:var(--ember);}
+.nov-opt:hover:not(.active-ok):not(.active-nov){background:#F4F6F8;}
+
+/* UPLOAD */
+.upload-zone{border:2px dashed var(--line);border-radius:8px;padding:15px;text-align:center;cursor:pointer;transition:.15s;position:relative;}
+.upload-zone:hover{border-color:var(--steel);background:#F4F8FF;}
+.upload-zone.drag-over{border-color:var(--teal);background:#F0FEF9;}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}
+.upload-icon{font-size:24px;margin-bottom:4px;}
+.upload-text{font-size:11.5px;color:var(--muted);}
+.upload-text b{color:var(--steel);}
+.file-preview{display:flex;align-items:center;gap:6px;margin-top:7px;flex-wrap:wrap;}
+.file-chip{background:#D6E6FF;color:var(--steel);border-radius:5px;padding:3px 9px;font-size:11px;font-weight:600;display:flex;align-items:center;gap:4px;cursor:pointer;}
+.file-chip .x{color:var(--ember);font-weight:900;}
+.prog-bar-wrap{height:5px;background:var(--line);border-radius:3px;margin:7px 0;overflow:hidden;display:none;}
+.prog-bar{height:100%;background:var(--teal);width:0;transition:width .3s;border-radius:3px;}
+
+/* BUTTONS */
+.btn{border:none;border-radius:7px;padding:8px 14px;font-size:12.5px;font-weight:600;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:5px;}
+.btn-submit{width:100%;height:44px;background:var(--good);color:#fff;border:none;border-radius:8px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:6px;}
+.btn-submit:hover{background:#245e46;}
+.btn-submit:disabled{background:#9ab8a6;cursor:not-allowed;}
+.btn-danger{background:#FBEAEA;color:var(--ember);border:1px solid #f5c6c6;}
+.btn-danger:hover{background:#f5c6c6;}
+.btn-primary{background:var(--navy);color:#fff;}
+.btn-primary:hover{background:var(--navy-2);}
+.btn-gold{background:var(--gold);color:#fff;}
+.btn-gold:hover{background:#a17709;}
+.btn-good{background:var(--good);color:#fff;}
+.btn-good:hover{background:#245e46;}
+.btn-ghost{background:#EEF1F5;color:var(--ink);border:1px solid var(--line);}
+.btn-ghost:hover{background:#E3E7ED;}
+.submit-msg{text-align:center;margin-top:8px;font-size:12px;min-height:15px;}
+.submit-msg.ok{color:var(--good);}
+.submit-msg.err{color:var(--ember);}
+
+/* FEED */
+.feed-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);}
+.feed-toolbar .flt{height:30px;padding:0 9px;border:1px solid var(--line);border-radius:6px;font-size:11.5px;font-family:inherit;color:var(--ink);background:#FAFBFC;}
+.flt:focus{outline:none;border-color:var(--steel);}
+.cnt-label{margin-left:auto;font-size:11px;color:var(--muted);}
+.feed-list{max-height:600px;overflow-y:auto;}
+.feed-list::-webkit-scrollbar{width:4px;}
+.feed-list::-webkit-scrollbar-thumb{background:var(--teal);border-radius:3px;}
+.feed-item{padding:11px 15px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:start;animation:slideIn .3s ease;}
+@keyframes slideIn{from{opacity:0;transform:translateY(-7px);}to{opacity:1;transform:translateY(0);}}
+.feed-item:hover{background:#F8FAFD;}
+.feed-avatar{width:28px;height:28px;border-radius:50%;color:#fff;font-weight:700;font-size:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;}
+.feed-body{min-width:0;}
+.feed-top{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:2px;}
+.feed-op{font-weight:700;font-size:12px;color:var(--navy);}
+.feed-eq{font-size:11.5px;color:var(--muted);}
+.feed-time{font-size:10px;color:var(--muted);}
+.feed-obs{font-size:11.5px;color:var(--ink);line-height:1.4;word-break:break-word;}
+.feed-obs.muted{color:var(--muted);font-style:italic;}
+.feed-evs{display:flex;gap:4px;flex-wrap:wrap;margin-top:3px;}
+.ev-btn{display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:2px 7px;border-radius:4px;border:1px solid var(--line);background:#EEF1F5;color:var(--steel);text-decoration:none;font-weight:600;}
+.ev-btn:hover{background:#E3E7ED;}
+.badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap;}
+.badge.ok{background:#EAF3EE;color:var(--good);}
+.badge.nov{background:#FBEAEA;color:var(--ember);}
+.badge.fix{background:#EAF1FB;color:var(--steel);}
+.btn-fix{font-size:10px;border:1px solid var(--line);border-radius:5px;padding:2px 7px;background:#EEF1F5;color:var(--muted);cursor:pointer;font-family:inherit;margin-top:3px;display:inline-block;}
+.btn-fix:hover{background:#E3E7ED;color:var(--ink);}
+.btn-unfix{font-size:10px;border:1px solid var(--steel);border-radius:5px;padding:2px 7px;background:#EAF1FB;color:var(--steel);cursor:pointer;font-family:inherit;margin-top:3px;display:inline-block;}
+.empty{padding:36px 20px;text-align:center;color:var(--muted);font-size:13px;}
+
+/* ═══════════════════════════════
+   ADMIN PANEL
+═══════════════════════════════ */
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:800px){.admin-grid{grid-template-columns:1fr;}}
+
+/* Tabla admin */
+.admin-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+.admin-table th{background:var(--navy);color:#fff;padding:9px 12px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.03em;font-weight:600;}
+.admin-table td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:middle;}
+.admin-table tr:nth-child(even) td{background:#FAFBFC;}
+.admin-table tr:hover td{background:#F0F4FA;}
+.status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;}
+.status-dot.activo{background:var(--good);}
+.status-dot.inactivo{background:var(--ember);}
+
+/* Form admin inline */
+.admin-form-row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px;}
+.admin-form-row .fld{margin-bottom:0;flex:1;min-width:120px;}
+.admin-form-row .fld label{margin-bottom:4px;}
+.admin-form-row .fld input,.admin-form-row .fld select{height:36px;}
+
+/* Centros - accordion */
+.centro-item{border:1px solid var(--line);border-radius:8px;margin-bottom:10px;overflow:hidden;}
+.centro-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#FAFBFC;cursor:pointer;gap:8px;}
+.centro-header:hover{background:#F0F4FA;}
+.centro-name{font-weight:700;font-size:13px;color:var(--navy);flex:1;}
+.centro-count{font-size:11px;color:var(--muted);margin-right:8px;}
+.centro-chevron{color:var(--muted);font-size:12px;transition:.2s;}
+.centro-chevron.open{transform:rotate(180deg);}
+.centro-body{display:none;padding:12px 14px;border-top:1px solid var(--line);}
+.centro-body.open{display:block;}
+.equipo-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.equipo-chip{background:#EEF4FC;color:var(--steel);border-radius:5px;padding:4px 10px;font-size:11.5px;font-weight:600;display:flex;align-items:center;gap:5px;}
+.equipo-chip button{background:none;border:none;cursor:pointer;color:var(--ember);font-size:13px;line-height:1;padding:0;font-weight:900;}
+.equipo-chip button:hover{color:#8b1c0e;}
+.add-equipo-row{display:flex;gap:6px;align-items:center;}
+.add-equipo-row input{flex:1;height:32px;padding:0 9px;border:1px solid var(--line);border-radius:6px;font-size:12px;font-family:inherit;}
+.add-equipo-row input:focus{outline:none;border-color:var(--steel);}
+
+/* PIN display */
+.pin-display{font-family:monospace;font-size:13px;background:#F0F4FA;padding:3px 8px;border-radius:4px;color:var(--navy);font-weight:700;letter-spacing:2px;}
+
+/* Spinner */
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* Toast */
+#toast{position:fixed;bottom:22px;right:22px;background:var(--navy);color:#fff;padding:11px 18px;border-radius:8px;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,0.25);z-index:9999;transform:translateY(80px);opacity:0;transition:.3s;pointer-events:none;max-width:340px;}
+#toast.show{transform:translateY(0);opacity:1;}
+#toast.ok{border-left:4px solid var(--teal);}
+#toast.err{border-left:4px solid var(--ember);}
+
+/* Modal confirm */
+#modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:800;display:none;align-items:center;justify-content:center;}
+#modal-overlay.show{display:flex;}
+.modal-box{background:#fff;border-radius:12px;padding:28px 30px;width:360px;max-width:95vw;box-shadow:0 12px 40px rgba(0,0,0,0.3);}
+.modal-box h3{font-family:Georgia,serif;font-size:16px;color:var(--navy);margin-bottom:10px;}
+.modal-box p{font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5;}
+.modal-btns{display:flex;gap:10px;justify-content:flex-end;}
+</style>
+</head>
+<body>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="co-big">INLOG S.A.</div>
+      <div class="subtitle">Integración Logística — Torre de Control</div>
+    </div>
+    <h2>📹 Registro de Revisión CCTV</h2>
+    <div class="fgrp">
+      <label>Operador</label>
+      <select id="login-op"><option value="">— Seleccionar —</option></select>
+    </div>
+    <div class="fgrp">
+      <label>PIN de acceso</label>
+      <input type="password" id="login-pin" placeholder="••••••" maxlength="10" autocomplete="off">
+    </div>
+    <button class="btn-login" onclick="doLogin()">Ingresar →</button>
+    <div class="login-err" id="login-err"></div>
+    <div style="margin-top:16px;font-size:10.5px;color:#aaa;text-align:center;">Contacta al Supervisor para obtener o cambiar tu PIN.</div>
+  </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="app-screen" style="display:none;">
+
+<header class="top">
+  <div>
+    <div class="brandline"><span class="co">INLOG S.A.</span><span class="div-label">Integración Logística — Torre de Control</span></div>
+    <h1>📹 Registro de Revisión de Equipos CCTV</h1>
+  </div>
+  <div class="header-right">
+    <span class="live-dot"></span><span class="live-label">EN VIVO</span>
+    <div style="display:flex;align-items:center;gap:7px;">
+      <div id="user-avatar">?</div>
+      <span id="user-name">—</span>
+    </div>
+    <button class="btn-header admin-btn" id="btn-admin-nav" onclick="showSection('admin')" style="display:none;">⚙ Administrador</button>
+    <button class="btn-header" onclick="doLogout()">Salir</button>
+  </div>
+</header>
+
+<!-- NAV -->
+<div class="main-nav">
+  <div class="mnav active" id="nav-registro" onclick="showSection('registro')">📝 Registro</div>
+  <div class="mnav" id="nav-feed" onclick="showSection('feed')">📡 Feed en vivo</div>
+  <div class="mnav admin-tab" id="nav-admin" onclick="showSection('admin')" style="display:none;">⚙ Administrador</div>
+</div>
+
+<div class="wrap">
+
+  <!-- ══ KPIs (siempre visibles) ══ -->
+  <div class="kpi-row">
+    <div class="kpi live"><div class="lbl">Hoy</div><div class="val" id="k-hoy">—</div></div>
+    <div class="kpi"><div class="lbl">Total</div><div class="val" id="k-total">—</div></div>
+    <div class="kpi nov"><div class="lbl">Con novedad</div><div class="val" id="k-nov">—</div></div>
+    <div class="kpi ok"><div class="lbl">Sin novedad</div><div class="val" id="k-ok">—</div></div>
+  </div>
+
+  <!-- ══════════════════════════════
+       SECCIÓN: REGISTRO
+  ══════════════════════════════ -->
+  <div class="section active" id="section-registro">
+    <div class="two-col">
+
+      <!-- Formulario -->
+      <div class="card">
+        <div class="card-header"><span>📝</span><h2>Nueva revisión CCTV</h2></div>
+        <div class="card-body">
+          <div class="fld">
+            <label>Centro / Bodega</label>
+            <select id="f-centro" onchange="updateEquipos()">
+              <option value="">— Seleccionar —</option>
+            </select>
+          </div>
+          <div class="fld">
+            <label>Equipo / Cámara</label>
+            <select id="f-equipo"><option value="">— Seleccionar centro primero —</option></select>
+          </div>
+          <div class="form-row">
+            <div class="fld"><label>Fecha de revisión</label><input type="date" id="f-fecha"></div>
+            <div class="fld">
+              <label>Turno</label>
+              <select id="f-turno">
+                <option value="Mañana">Mañana (06:00–14:00)</option>
+                <option value="Tarde">Tarde (14:00–22:00)</option>
+                <option value="Noche">Noche (22:00–06:00)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="fld"><label>Grab. desde</label><input type="date" id="f-grab-ini"></div>
+            <div class="fld"><label>Grab. hasta</label><input type="date" id="f-grab-fin"></div>
+          </div>
+          <div class="fld">
+            <label>Estado del equipo</label>
+            <div class="nov-toggle">
+              <div class="nov-opt active-ok" id="opt-ok" onclick="setNovedad(false)">✅ Sin novedad</div>
+              <div class="nov-opt" id="opt-nov" onclick="setNovedad(true)">⚠ Con novedad</div>
+            </div>
+          </div>
+          <div class="fld" id="fld-obs" style="display:none;">
+            <label>Descripción de la novedad <span style="color:var(--ember)">*</span></label>
+            <textarea id="f-obs" placeholder="Detalle el problema: cámara sin imagen, distorsión, sin grabación, obstruida..."></textarea>
+          </div>
+          <div class="fld">
+            <label>Evidencias (imágenes / PDF) — opcional</label>
+            <div class="upload-zone" id="upload-zone">
+              <input type="file" id="f-files" accept="image/*,application/pdf" multiple onchange="onFilesSelected(this.files)">
+              <div class="upload-icon">📎</div>
+              <div class="upload-text">Arrastra archivos o <b>haz clic para seleccionar</b><br><span style="font-size:10px">JPG/PNG/PDF — máx. 5 MB c/u</span></div>
+            </div>
+            <div id="file-preview" style="display:none;" class="file-preview"></div>
+          </div>
+          <div class="prog-bar-wrap" id="prog-wrap"><div class="prog-bar" id="prog-bar"></div></div>
+          <button class="btn-submit" id="btn-submit" onclick="guardarRevision()">
+            <span id="btn-txt">💾 Guardar revisión</span>
+          </button>
+          <div class="submit-msg" id="submit-msg"></div>
+        </div>
+      </div>
+
+      <!-- Mini-feed lateral -->
+      <div class="card">
+        <div class="card-header" style="justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:7px;"><span>📡</span><h2>Últimas revisiones</h2></div>
+          <button class="btn-ghost btn" style="font-size:11px;padding:4px 10px;" onclick="showSection('feed')">Ver todo →</button>
+        </div>
+        <div class="feed-list" id="mini-feed" style="max-height:520px;">
+          <div class="empty">Cargando...</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       SECCIÓN: FEED COMPLETO
+  ══════════════════════════════ -->
+  <div class="section" id="section-feed">
+    <div class="card">
+      <div class="card-header" style="justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:7px;"><span>📡</span><h2>Feed en tiempo real — Todas las revisiones</h2></div>
+      </div>
+      <div class="feed-toolbar">
+        <select class="flt" id="fl-op" onchange="renderFeed()"><option value="">Todos los operadores</option></select>
+        <select class="flt" id="fl-centro" onchange="renderFeed()"><option value="">Todos los centros</option></select>
+        <select class="flt" id="fl-nov" onchange="renderFeed()">
+          <option value="">Todo estado</option>
+          <option value="1">Con novedad</option>
+          <option value="0">Sin novedad</option>
+        </select>
+        <input type="date" class="flt" id="fl-desde" onchange="renderFeed()" style="height:30px;">
+        <input type="date" class="flt" id="fl-hasta" onchange="renderFeed()" style="height:30px;">
+        <span class="cnt-label" id="feed-cnt">—</span>
+      </div>
+      <div class="feed-list" id="feed-list" style="max-height:640px;">
+        <div class="empty">Cargando revisiones...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════
+       SECCIÓN: ADMINISTRADOR
+  ══════════════════════════════ -->
+  <div class="section" id="section-admin">
+
+    <div class="admin-grid">
+
+      <!-- ══ GESTIÓN DE OPERADORES ══ -->
+      <div>
+        <div class="card">
+          <div class="card-header"><span>👥</span><h2>Operadores</h2></div>
+          <div class="card-body">
+
+            <!-- Agregar operador -->
+            <div style="background:#F8FAFD;border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:16px;">
+              <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px;">➕ Agregar operador</div>
+              <div class="admin-form-row">
+                <div class="fld" style="flex:2;">
+                  <label>Nombre completo</label>
+                  <input type="text" id="new-op-nombre" placeholder="Ej: Juan Pérez">
+                </div>
+                <div class="fld" style="flex:1;">
+                  <label>PIN (6–8 chars)</label>
+                  <input type="text" id="new-op-pin" placeholder="Ej: JP2606" maxlength="10">
+                </div>
+              </div>
+              <div class="admin-form-row">
+                <div class="fld">
+                  <label>Rol</label>
+                  <select id="new-op-rol">
+                    <option value="operador">Operador</option>
+                    <option value="supervisor">Supervisor</option>
+                  </select>
+                </div>
+                <div style="padding-bottom:1px;">
+                  <button class="btn btn-good" onclick="agregarOperador()">✔ Agregar</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lista de operadores -->
+            <div id="op-loading" class="empty" style="padding:20px;">Cargando operadores...</div>
+            <table class="admin-table" id="op-table" style="display:none;">
+              <thead><tr><th>Nombre</th><th>PIN</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
+              <tbody id="op-tbody"></tbody>
+            </table>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ GESTIÓN DE CENTROS Y EQUIPOS ══ -->
+      <div>
+        <div class="card">
+          <div class="card-header"><span>🏭</span><h2>Centros / Bodegas y Equipos</h2></div>
+          <div class="card-body">
+
+            <!-- Agregar centro -->
+            <div style="background:#F8FAFD;border:1px solid var(--line);border-radius:8px;padding:14px;margin-bottom:16px;">
+              <div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:10px;">➕ Agregar centro / bodega</div>
+              <div class="admin-form-row">
+                <div class="fld" style="flex:2;">
+                  <label>Nombre del centro</label>
+                  <input type="text" id="new-centro-nombre" placeholder="Ej: Durán">
+                </div>
+                <div style="padding-bottom:1px;">
+                  <button class="btn btn-good" onclick="agregarCentro()">✔ Agregar</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Lista centros/equipos -->
+            <div id="centros-loading" class="empty" style="padding:20px;">Cargando centros...</div>
+            <div id="centros-list"></div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══ LOG DE ACTIVIDAD ADMIN ══ -->
+    <div class="card">
+      <div class="card-header"><span>📋</span><h2>Resumen del sistema</h2></div>
+      <div class="card-body">
+        <div id="admin-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;font-size:13px;color:var(--muted);">
+          Cargando...
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /section-admin -->
+
+</div><!-- /wrap -->
+</div><!-- /app-screen -->
+
+<!-- Modal confirmación -->
+<div id="modal-overlay">
+  <div class="modal-box">
+    <h3 id="modal-title">Confirmar acción</h3>
+    <p id="modal-msg">¿Estás seguro?</p>
+    <div class="modal-btns">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-danger" id="modal-confirm-btn">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ══════════════════════════════════════════════════════════════
+   SUPABASE CONFIG — GESTIÓN DE SEGURIDAD
+══════════════════════════════════════════════════════════════ */
+const SB_URL = 'https://cnzldoetdehaflihrswi.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuemxkb2V0ZGVoYWZsaWhyc3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNjIwNDIsImV4cCI6MjA5NTYzODA0Mn0.FltL4aNuTr0vAJcHtROeY5QyBB3WRb8UjHwGyFD-B5E';
+const TBL_REV = 'cctv_revisiones';
+const TBL_OP  = 'cctv_operadores';
+const TBL_CTR = 'cctv_centros';
+const TBL_EQ  = 'cctv_equipos';
+const BUCKET  = 'cctv-evidencias';
+
+/* ══════════════════════════════════════════════════════════════
+   ESTADO GLOBAL
+══════════════════════════════════════════════════════════════ */
+let currentUser   = null;
+let allRecords    = [];
+let allOperadores = [];   // [{id, nombre, pin, rol, activo}]
+let allCentros    = [];   // [{id, nombre, activo}]
+let allEquipos    = [];   // [{id, centro_id, nombre, activo}]
+let selectedFiles = [];
+let tieneNovedad  = false;
+let pollInterval  = null;
+let modalCallback = null;
+
+/* ══════════════════════════════════════════════════════════════
+   SUPABASE HELPERS
+══════════════════════════════════════════════════════════════ */
+async function sbFetch(path, opts = {}) {
+  const url = `${SB_URL}/rest/v1/${path}`;
+  const headers = {
+    'apikey': SB_KEY,
+    'Authorization': `Bearer ${SB_KEY}`,
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation',
+    ...(opts.headers || {}),
+  };
+  const res = await fetch(url, { ...opts, headers });
+  if (!res.ok) { const t = await res.text(); throw new Error(`SB ${res.status}: ${t}`); }
+  const ct = res.headers.get('content-type') || '';
+  return ct.includes('json') ? res.json() : [];
+}
+const sbGet    = (tbl, qs='')      => sbFetch(`${tbl}?${qs}`);
+const sbPost   = (tbl, data)       => sbFetch(tbl, { method:'POST', body: JSON.stringify(data) });
+const sbPatch  = (tbl, qs, data)   => sbFetch(`${tbl}?${qs}`, { method:'PATCH', body: JSON.stringify(data) });
+const sbDelete = (tbl, qs)         => sbFetch(`${tbl}?${qs}`, { method:'DELETE', headers:{'Prefer':'return=minimal'} });
+
+async function uploadFile(file, prefix) {
+  const ext  = file.name.split('.').pop();
+  const name = `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+  const res  = await fetch(`${SB_URL}/storage/v1/object/${BUCKET}/${name}`, {
+    method: 'POST',
+    headers: { 'apikey': SB_KEY, 'Authorization': `Bearer ${SB_KEY}`, 'Content-Type': file.type || 'application/octet-stream', 'x-upsert': 'true' },
+    body: file,
+  });
+  if (!res.ok) throw new Error(`Upload ${res.status}`);
+  return `${SB_URL}/storage/v1/object/public/${BUCKET}/${name}`;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LOGIN
+══════════════════════════════════════════════════════════════ */
+async function loadLoginOps() {
+  try {
+    const ops = await sbGet(TBL_OP, 'activo=eq.true&order=nombre.asc&select=nombre,pin,rol');
+    const sel = document.getElementById('login-op');
+    sel.innerHTML = '<option value="">— Seleccionar —</option>' +
+      ops.map(o => `<option value="${esc(o.nombre)}" data-pin="${esc(o.pin)}" data-rol="${esc(o.rol)}">${esc(o.nombre)}${o.rol==='supervisor'?' ★':''}</option>`).join('');
+  } catch(e) {
+    // Fallback si las tablas admin aún no existen: operadores hardcoded
+    const sel = document.getElementById('login-op');
+    sel.innerHTML = `<option value="">— Seleccionar —</option>
+      <option value="Greis Castro" data-pin="GR2601" data-rol="operador">Greis Castro</option>
+      <option value="Melinda Rivera" data-pin="ME2602" data-rol="operador">Melinda Rivera</option>
+      <option value="Stalyn Oña" data-pin="ST2603" data-rol="operador">Stalyn Oña</option>
+      <option value="Dimas Gómez" data-pin="DI2604" data-rol="operador">Dimas Gómez</option>
+      <option value="Carmen Alvear" data-pin="CA2605" data-rol="operador">Carmen Alvear</option>
+      <option value="Marco Mañay" data-pin="MMSUP1" data-rol="supervisor">Marco Mañay ★</option>`;
+  }
+}
+
+document.getElementById('login-pin').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+function doLogin() {
+  const sel  = document.getElementById('login-op');
+  const pin  = document.getElementById('login-pin').value.trim();
+  const err  = document.getElementById('login-err');
+  const opt  = sel.options[sel.selectedIndex];
+  if (!sel.value) { err.textContent = 'Selecciona un operador.'; return; }
+  if (!pin)       { err.textContent = 'Ingresa tu PIN.'; return; }
+  if (opt.dataset.pin !== pin) {
+    err.textContent = 'PIN incorrecto.';
+    document.getElementById('login-pin').value = '';
+    document.getElementById('login-pin').focus();
+    return;
+  }
+  err.textContent = '';
+  currentUser = { nombre: sel.value, rol: opt.dataset.rol };
+  sessionStorage.setItem('cctv_user', JSON.stringify(currentUser));
+  showApp();
+}
+
+function doLogout() {
+  clearInterval(pollInterval);
+  currentUser = null;
+  sessionStorage.removeItem('cctv_user');
+  document.getElementById('app-screen').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-pin').value = '';
+  loadLoginOps();
+}
+
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-screen').style.display  = 'block';
+
+  const initials = currentUser.nombre.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('user-avatar').textContent = initials;
+  document.getElementById('user-name').innerHTML = esc(currentUser.nombre) +
+    (currentUser.rol==='supervisor' ? ' &nbsp;<span class="sup-badge">SUP</span>' : '');
+
+  const isSup = currentUser.rol === 'supervisor';
+  document.getElementById('btn-admin-nav').style.display = isSup ? 'inline-flex' : 'none';
+  document.getElementById('nav-admin').style.display     = isSup ? 'block' : 'none';
+
+  const hoy = new Date().toISOString().slice(0,10);
+  document.getElementById('f-fecha').value    = hoy;
+  document.getElementById('f-grab-ini').value = hoy;
+  document.getElementById('f-grab-fin').value = hoy;
+
+  loadAll();
+  pollInterval = setInterval(loadRecords, 15000);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  loadLoginOps();
+  const saved = sessionStorage.getItem('cctv_user');
+  if (saved) { try { currentUser = JSON.parse(saved); showApp(); } catch(e){} }
+});
+
+/* ══════════════════════════════════════════════════════════════
+   SECCIONES
+══════════════════════════════════════════════════════════════ */
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.mnav').forEach(n => n.classList.remove('active'));
+  document.getElementById('section-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+  if (name === 'admin') loadAdmin();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   CARGA DE DATOS
+══════════════════════════════════════════════════════════════ */
+async function loadAll() {
+  await Promise.all([loadCatalogos(), loadRecords()]);
+}
+
+async function loadCatalogos() {
+  try {
+    const [ops, ctrs, eqs] = await Promise.all([
+      sbGet(TBL_OP,  'activo=eq.true&order=nombre.asc'),
+      sbGet(TBL_CTR, 'activo=eq.true&order=nombre.asc'),
+      sbGet(TBL_EQ,  'activo=eq.true&order=nombre.asc'),
+    ]);
+    allOperadores = ops  || [];
+    allCentros    = ctrs || [];
+    allEquipos    = eqs  || [];
+  } catch(e) {
+    // fallback hardcoded si las tablas admin no existen aún
+    allCentros = [
+      {id:'amaguana',nombre:'Amaguaña'},{id:'pifo1',nombre:'Pifo 1'},{id:'pifo2',nombre:'Pifo 2'},
+      {id:'perimetral',nombre:'Perimetral (Guayaquil)'},{id:'manta',nombre:'Manta'},
+      {id:'cuenca',nombre:'Cuenca'},{id:'lima',nombre:'Lima (Perú)'},{id:'santiago',nombre:'Santiago (Chile)'},
+    ];
+    allEquipos = [
+      {centro_id:'amaguana',nombre:'DVR-AMG-01'},{centro_id:'amaguana',nombre:'CAM-AMG-ACC-01'},
+      {centro_id:'pifo1',nombre:'DVR-PF1-01'},{centro_id:'pifo1',nombre:'CAM-PF1-ACC-01'},
+      {centro_id:'pifo2',nombre:'DVR-PF2-01'},{centro_id:'pifo2',nombre:'CAM-PF2-ACC-01'},
+      {centro_id:'perimetral',nombre:'DVR-PER-01'},{centro_id:'perimetral',nombre:'CAM-PER-ACC-01'},
+      {centro_id:'manta',nombre:'DVR-MTA-01'},{centro_id:'cuenca',nombre:'DVR-CUE-01'},
+    ];
+  }
+  buildCentroSelect();
+}
+
+function buildCentroSelect() {
+  const sel = document.getElementById('f-centro');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">— Seleccionar —</option>' +
+    allCentros.map(c => `<option value="${esc(c.id||c.nombre)}" ${(c.id||c.nombre)===cur?'selected':''}>${esc(c.nombre)}</option>`).join('');
+  updateEquipos();
+  buildFeedFilters();
+}
+
+function updateEquipos() {
+  const centroVal = document.getElementById('f-centro').value;
+  const eqs = allEquipos.filter(e => (e.centro_id||e.centro) == centroVal || e.centro_nombre === centroVal);
+  const sel = document.getElementById('f-equipo');
+  sel.innerHTML = eqs.length
+    ? ['<option value="">— Seleccionar equipo —</option>', ...eqs.map(e => `<option value="${esc(e.nombre)}">${esc(e.nombre)}</option>`)].join('')
+    : '<option value="">— Selecciona un centro primero —</option>';
+}
+
+async function loadRecords() {
+  try {
+    // Paginar en bloques de 500 para traer todos los registros
+    let allRows = [];
+    let offset = 0;
+    const pageSize = 500;
+    while(true) {
+      const res = await fetch(
+        `${SB_URL}/rest/v1/${TBL_REV}?order=created_at.desc&limit=${pageSize}&offset=${offset}`,
+        { headers: {
+            'apikey': SB_KEY,
+            'Authorization': 'Bearer ' + SB_KEY,
+            'Range-Unit': 'items',
+            'Range': `${offset}-${offset + pageSize - 1}`
+          }
+        }
+      );
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const page = await res.json();
+      allRows = allRows.concat(page);
+      if(page.length < pageSize) break;
+      offset += pageSize;
+    }
+    allRecords = allRows;
+    updateKPIs();
+    buildFeedFilters();
+    renderFeed();
+    renderMiniFeed();
+  } catch(e) { console.error('loadRecords:', e); }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   KPIs
+══════════════════════════════════════════════════════════════ */
+function updateKPIs() {
+  const hoy = new Date().toISOString().slice(0,10);
+  document.getElementById('k-hoy').textContent   = allRecords.filter(r=>r.fecha===hoy).length;
+  document.getElementById('k-total').textContent  = allRecords.length;
+  document.getElementById('k-nov').textContent    = allRecords.filter(r=>r.novedad).length;
+  document.getElementById('k-ok').textContent     = allRecords.filter(r=>!r.novedad).length;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FORMULARIO
+══════════════════════════════════════════════════════════════ */
+function setNovedad(val) {
+  tieneNovedad = val;
+  document.getElementById('opt-ok').className  = 'nov-opt' + (!val?' active-ok':'');
+  document.getElementById('opt-nov').className = 'nov-opt' + (val?' active-nov':'');
+  document.getElementById('fld-obs').style.display = val ? 'block' : 'none';
+  if(!val) document.getElementById('f-obs').value = '';
+}
+
+const uploadZone = document.getElementById('upload-zone');
+uploadZone.addEventListener('dragover', e=>{e.preventDefault();uploadZone.classList.add('drag-over');});
+uploadZone.addEventListener('dragleave', ()=>uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e=>{e.preventDefault();uploadZone.classList.remove('drag-over');onFilesSelected(e.dataTransfer.files);});
+
+function onFilesSelected(files) {
+  for(const f of files){
+    if(f.size>5*1024*1024){toast('Archivo muy grande (máx 5 MB): '+f.name,'err');continue;}
+    if(!selectedFiles.find(x=>x.name===f.name&&x.size===f.size)) selectedFiles.push(f);
+  }
+  renderFilePreview();
+}
+function renderFilePreview(){
+  const el=document.getElementById('file-preview');
+  if(!selectedFiles.length){el.style.display='none';return;}
+  el.style.display='flex';
+  el.innerHTML=selectedFiles.map((f,i)=>`<span class="file-chip" onclick="removeFile(${i})">📎 ${esc(f.name)} <span class="x">✕</span></span>`).join('');
+}
+function removeFile(i){selectedFiles.splice(i,1);renderFilePreview();}
+
+async function guardarRevision() {
+  const centro  = document.getElementById('f-centro').value;
+  const equipo  = document.getElementById('f-equipo').value;
+  const fecha   = document.getElementById('f-fecha').value;
+  const turno   = document.getElementById('f-turno').value;
+  const grabIni = document.getElementById('f-grab-ini').value;
+  const grabFin = document.getElementById('f-grab-fin').value;
+  const obs     = document.getElementById('f-obs').value.trim();
+
+  if(!centro)  {toast('Selecciona el Centro / Bodega','err');return;}
+  if(!equipo)  {toast('Selecciona el Equipo / Cámara','err');return;}
+  if(!fecha)   {toast('Selecciona la fecha de revisión','err');return;}
+  if(tieneNovedad && !obs){toast('Describe la novedad observada','err');return;}
+
+  setBusy(true);
+  const msgEl = document.getElementById('submit-msg');
+  msgEl.className='submit-msg'; msgEl.textContent='';
+
+  try {
+    const centroNombre = allCentros.find(c=>(c.id||c.nombre)===centro)?.nombre || centro;
+    const evidenciaUrls = [];
+    if(selectedFiles.length){
+      document.getElementById('prog-wrap').style.display='block';
+      for(let i=0;i<selectedFiles.length;i++){
+        setProgress(Math.round((i/selectedFiles.length)*90));
+        const url = await uploadFile(selectedFiles[i], `${fecha}_${equipo.replace(/[^a-zA-Z0-9]/g,'_')}`);
+        evidenciaUrls.push(url);
+      }
+      setProgress(100);
+    }
+    await sbPost(TBL_REV, {
+      fecha, turno, operador:currentUser.nombre, centro:centroNombre, equipo,
+      grab_ini:grabIni||null, grab_fin:grabFin||null,
+      novedad:tieneNovedad, obs:tieneNovedad?obs:null,
+      evidencia:evidenciaUrls.length?evidenciaUrls.join('; '):null,
+      corregido:false, corregido_por:null, corregido_en:null,
+      created_at:new Date().toISOString(),
+    });
+    toast('✅ Revisión guardada correctamente','ok');
+    msgEl.className='submit-msg ok';
+    msgEl.textContent='✔ Guardado · '+new Date().toLocaleTimeString('es-EC');
+    resetForm();
+    await loadRecords();
+  } catch(e) {
+    toast('Error: '+e.message,'err');
+    msgEl.className='submit-msg err';
+    msgEl.textContent='✗ '+e.message;
+  } finally {
+    setBusy(false);
+    setTimeout(()=>{document.getElementById('prog-wrap').style.display='none';setProgress(0);},1200);
+  }
+}
+
+function setBusy(v){
+  document.getElementById('btn-submit').disabled=v;
+  document.getElementById('btn-txt').innerHTML=v?'<span class="spin"></span> Guardando...':'💾 Guardar revisión';
+}
+function setProgress(p){document.getElementById('prog-bar').style.width=p+'%';}
+function resetForm(){
+  document.getElementById('f-centro').value='';
+  updateEquipos();
+  const hoy=new Date().toISOString().slice(0,10);
+  document.getElementById('f-fecha').value=hoy;
+  document.getElementById('f-grab-ini').value=hoy;
+  document.getElementById('f-grab-fin').value=hoy;
+  setNovedad(false);
+  selectedFiles=[];
+  renderFilePreview();
+  document.getElementById('f-files').value='';
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FEED
+══════════════════════════════════════════════════════════════ */
+function buildFeedFilters(){
+  const ops  = [...new Set(allRecords.map(r=>r.operador))].sort();
+  const ctrs = [...new Set(allRecords.map(r=>r.centro).filter(Boolean))].sort();
+  ['fl-op'].forEach(id=>{
+    const s=document.getElementById(id),c=s.value;
+    s.innerHTML='<option value="">Todos los operadores</option>'+ops.map(o=>`<option value="${esc(o)}"${o===c?' selected':''}>${esc(o)}</option>`).join('');
+  });
+  const fc=document.getElementById('fl-centro'),cc=fc.value;
+  fc.innerHTML='<option value="">Todos los centros</option>'+ctrs.map(c=>`<option value="${esc(c)}"${c===cc?' selected':''}>${esc(c)}</option>`).join('');
+}
+
+function filteredRecords(){
+  const op  = document.getElementById('fl-op').value;
+  const ctr = document.getElementById('fl-centro').value;
+  const nov = document.getElementById('fl-nov').value;
+  const des = document.getElementById('fl-desde').value;
+  const has = document.getElementById('fl-hasta').value;
+  return allRecords.filter(r=>{
+    if(op  && r.operador!==op)     return false;
+    if(ctr && r.centro!==ctr)      return false;
+    if(nov==='1' && !r.novedad)    return false;
+    if(nov==='0' && r.novedad)     return false;
+    if(des && r.fecha<des)         return false;
+    if(has && r.fecha>has)         return false;
+    return true;
+  });
+}
+
+function renderFeed(){
+  const rows = filteredRecords();
+  document.getElementById('feed-cnt').textContent = rows.length+' registro'+(rows.length!==1?'s':'')+
+    (rows.length<allRecords.length?' (de '+allRecords.length+')':'');
+  document.getElementById('feed-list').innerHTML = rows.length
+    ? rows.map(r=>feedItemHTML(r,true)).join('')
+    : '<div class="empty">Sin registros para los filtros aplicados.</div>';
+}
+
+function renderMiniFeed(){
+  const rows = allRecords.slice(0,20);
+  document.getElementById('mini-feed').innerHTML = rows.length
+    ? rows.map(r=>feedItemHTML(r,false)).join('')
+    : '<div class="empty">Sin revisiones aún.</div>';
+}
+
+function feedItemHTML(r, showFixBtn){
+  const initials = r.operador.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const bg       = strColor(r.operador);
+  const ts       = r.created_at ? new Date(r.created_at).toLocaleString('es-EC',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+  const badge    = r.novedad
+    ? (r.corregido?'<span class="badge fix">✓ CORREGIDO</span>':'<span class="badge nov">⚠ NOVEDAD</span>')
+    : '<span class="badge ok">✅ OK</span>';
+  const obsHtml  = r.novedad && r.obs
+    ? `<div class="feed-obs${r.corregido?' muted':''}" style="${r.corregido?'text-decoration:line-through;opacity:.6;':''}">${esc(r.obs)}</div>`
+    : `<div class="feed-obs muted">Sin novedades</div>`;
+  const evHtml   = r.evidencia
+    ? '<div class="feed-evs">'+r.evidencia.split('; ').filter(Boolean).map((u,i)=>`<a class="ev-btn" href="${u}" target="_blank">📎 Ev.${i+1}</a>`).join('')+'</div>'
+    : '';
+  const isSup    = currentUser && currentUser.rol==='supervisor';
+  let fixBtn     = '';
+  if(showFixBtn && isSup && r.novedad){
+    fixBtn = r.corregido
+      ? `<button class="btn-unfix" onclick="marcarCorreccion(${r.id},false)">↩ Revertir</button>`
+      : `<button class="btn-fix" onclick="marcarCorreccion(${r.id},true)">✔ Corregido</button>`;
+  }
+  return `<div class="feed-item">
+    <div class="feed-avatar" style="background:${bg}">${initials}</div>
+    <div class="feed-body">
+      <div class="feed-top">
+        <span class="feed-op">${esc(r.operador)}</span>
+        <span class="feed-eq">· ${esc(r.equipo||'')}${r.centro?' ('+esc(r.centro)+')':''}</span>
+        <span class="feed-time">${ts}${r.turno?' · '+esc(r.turno):''}</span>
+      </div>
+      ${obsHtml}${evHtml}${fixBtn}
+    </div>
+    <div>${badge}</div>
+  </div>`;
+}
+
+async function marcarCorreccion(id, estado){
+  try{
+    await sbPatch(TBL_REV,'id=eq.'+id,{
+      corregido:estado,
+      corregido_por:estado?currentUser.nombre:null,
+      corregido_en:estado?new Date().toISOString():null,
+    });
+    toast(estado?'✔ Marcado como corregido':'Revertido a pendiente','ok');
+    await loadRecords();
+  }catch(e){toast('Error: '+e.message,'err');}
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ADMINISTRADOR — OPERADORES
+══════════════════════════════════════════════════════════════ */
+async function loadAdmin(){
+  await Promise.all([loadAdminOperadores(), loadAdminCentros()]);
+  loadAdminSummary();
+}
+
+async function loadAdminOperadores(){
+  document.getElementById('op-loading').style.display='block';
+  document.getElementById('op-table').style.display='none';
+  try{
+    const ops = await sbGet(TBL_OP,'order=nombre.asc');
+    allOperadores = ops || [];
+    renderOpTable(ops);
+  }catch(e){
+    document.getElementById('op-loading').textContent='Error cargando operadores: '+e.message;
+  }
+}
+
+function renderOpTable(ops){
+  document.getElementById('op-loading').style.display='none';
+  const tbl = document.getElementById('op-table');
+  tbl.style.display='table';
+  document.getElementById('op-tbody').innerHTML = ops.map(o=>`
+    <tr>
+      <td><strong>${esc(o.nombre)}</strong></td>
+      <td><span class="pin-display">${esc(o.pin)}</span></td>
+      <td style="text-transform:capitalize">${esc(o.rol)}</td>
+      <td>
+        <span class="status-dot ${o.activo?'activo':'inactivo'}"></span>
+        ${o.activo?'Activo':'Inactivo'}
+      </td>
+      <td style="white-space:nowrap;display:flex;gap:5px;">
+        ${o.activo
+          ? `<button class="btn btn-danger" style="padding:3px 8px;font-size:11px;" onclick="toggleOperador(${o.id},false,'${esc(o.nombre)}')">Desactivar</button>`
+          : `<button class="btn btn-good" style="padding:3px 8px;font-size:11px;" onclick="toggleOperador(${o.id},true,'${esc(o.nombre)}')">Activar</button>`
+        }
+        <button class="btn btn-ghost" style="padding:3px 8px;font-size:11px;" onclick="cambiarPin(${o.id},'${esc(o.nombre)}')">🔑 PIN</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:16px;">Sin operadores registrados.</td></tr>';
+}
+
+async function agregarOperador(){
+  const nombre = document.getElementById('new-op-nombre').value.trim();
+  const pin    = document.getElementById('new-op-pin').value.trim();
+  const rol    = document.getElementById('new-op-rol').value;
+  if(!nombre){toast('Ingresa el nombre del operador','err');return;}
+  if(!pin || pin.length < 4){toast('El PIN debe tener al menos 4 caracteres','err');return;}
+  if(allOperadores.find(o=>o.nombre.toLowerCase()===nombre.toLowerCase())){toast('Ya existe un operador con ese nombre','err');return;}
+  try{
+    await sbPost(TBL_OP,{nombre,pin,rol,activo:true,created_at:new Date().toISOString()});
+    toast('✅ Operador agregado: '+nombre,'ok');
+    document.getElementById('new-op-nombre').value='';
+    document.getElementById('new-op-pin').value='';
+    await loadAdminOperadores();
+    await loadLoginOps();
+  }catch(e){toast('Error: '+e.message,'err');}
+}
+
+function toggleOperador(id, estado, nombre){
+  openModal(
+    (estado?'Activar':'Desactivar')+' operador',
+    `¿Confirmas ${estado?'activar':'desactivar'} a <strong>${nombre}</strong>?<br>
+    ${!estado?'El operador no podrá iniciar sesión mientras esté inactivo.':''}`,
+    async ()=>{
+      await sbPatch(TBL_OP,'id=eq.'+id,{activo:estado});
+      toast((estado?'✅ Activado: ':'⛔ Desactivado: ')+nombre,'ok');
+      await loadAdminOperadores();
+      await loadLoginOps();
+    }
+  );
+}
+
+async function cambiarPin(id, nombre){
+  const nuevoPin = prompt(`Nuevo PIN para ${nombre} (mín. 4 caracteres):`);
+  if(!nuevoPin) return;
+  if(nuevoPin.length < 4){toast('PIN demasiado corto (mín. 4 caracteres)','err');return;}
+  try{
+    await sbPatch(TBL_OP,'id=eq.'+id,{pin:nuevoPin});
+    toast('🔑 PIN actualizado para '+nombre,'ok');
+    await loadAdminOperadores();
+  }catch(e){toast('Error: '+e.message,'err');}
+}
+
+/* ══════════════════════════════════════════════════════════════
+   ADMINISTRADOR — CENTROS Y EQUIPOS
+══════════════════════════════════════════════════════════════ */
+async function loadAdminCentros(){
+  document.getElementById('centros-loading').style.display='block';
+  document.getElementById('centros-list').innerHTML='';
+  try{
+    const [ctrs, eqs] = await Promise.all([
+      sbGet(TBL_CTR,'order=nombre.asc'),
+      sbGet(TBL_EQ, 'order=nombre.asc'),
+    ]);
+    allCentros  = ctrs || [];
+    allEquipos  = eqs  || [];
+    renderCentrosList(ctrs, eqs);
+    buildCentroSelect();
+  }catch(e){
+    document.getElementById('centros-loading').textContent='Error: '+e.message;
+  }
+}
+
+function renderCentrosList(ctrs, eqs){
+  document.getElementById('centros-loading').style.display='none';
+  const list = document.getElementById('centros-list');
+  if(!ctrs.length){ list.innerHTML='<div class="empty">Sin centros registrados. Agrega el primero.</div>'; return; }
+  list.innerHTML = ctrs.map(c=>{
+    const ceqs = eqs.filter(e=>e.centro_id===c.id);
+    const activos = ceqs.filter(e=>e.activo);
+    return `<div class="centro-item">
+      <div class="centro-header" onclick="toggleCentroBody(${c.id})">
+        <span class="centro-name">${esc(c.nombre)}</span>
+        <span class="centro-count">${activos.length} equipo${activos.length!==1?'s':''}</span>
+        <span style="margin-right:6px;">${c.activo?'<span style=\'color:var(--good);font-size:11px;\'>● Activo</span>':'<span style=\'color:var(--ember);font-size:11px;\'>● Inactivo</span>'}</span>
+        <div style="display:flex;gap:5px;" onclick="event.stopPropagation()">
+          ${c.activo
+            ? `<button class="btn btn-danger" style="padding:2px 7px;font-size:11px;" onclick="toggleCentro(${c.id},false,'${esc(c.nombre)}')">Desactivar</button>`
+            : `<button class="btn btn-good"   style="padding:2px 7px;font-size:11px;" onclick="toggleCentro(${c.id},true,'${esc(c.nombre)}')">Activar</button>`
+          }
+        </div>
+        <span class="centro-chevron" id="chev-${c.id}">▼</span>
+      </div>
+      <div class="centro-body" id="cbody-${c.id}">
+        <div class="equipo-list" id="eqlist-${c.id}">
+          ${activos.map(e=>`
+            <span class="equipo-chip">${esc(e.nombre)}
+              <button onclick="eliminarEquipo(${e.id},'${esc(e.nombre)}',${c.id})" title="Eliminar">✕</button>
+            </span>`).join('') || '<span style="font-size:12px;color:var(--muted);">Sin equipos activos.</span>'}
+        </div>
+        <div class="add-equipo-row">
+          <input type="text" id="new-eq-${c.id}" placeholder="Ej: CAM-AMG-BODEGA-03" onkeydown="if(event.key==='Enter')agregarEquipo(${c.id})">
+          <button class="btn btn-good" style="padding:5px 11px;font-size:12px;" onclick="agregarEquipo(${c.id})">➕ Agregar</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCentroBody(id){
+  const body = document.getElementById('cbody-'+id);
+  const chev = document.getElementById('chev-'+id);
+  body.classList.toggle('open');
+  chev.classList.toggle('open');
+}
+
+async function agregarCentro(){
+  const nombre = document.getElementById('new-centro-nombre').value.trim();
+  if(!nombre){toast('Ingresa el nombre del centro','err');return;}
+  if(allCentros.find(c=>c.nombre.toLowerCase()===nombre.toLowerCase())){toast('Ya existe ese centro','err');return;}
+  try{
+    await sbPost(TBL_CTR,{nombre,activo:true,created_at:new Date().toISOString()});
+    toast('✅ Centro agregado: '+nombre,'ok');
+    document.getElementById('new-centro-nombre').value='';
+    await loadAdminCentros();
+  }catch(e){toast('Error: '+e.message,'err');}
+}
+
+function toggleCentro(id, estado, nombre){
+  openModal(
+    (estado?'Activar':'Desactivar')+' centro',
+    `¿Confirmas ${estado?'activar':'desactivar'} el centro <strong>${nombre}</strong>?`,
+    async()=>{
+      await sbPatch(TBL_CTR,'id=eq.'+id,{activo:estado});
+      toast((estado?'✅ Activado: ':'⛔ Desactivado: ')+nombre,'ok');
+      await loadAdminCentros();
+    }
+  );
+}
+
+async function agregarEquipo(centroId){
+  const input  = document.getElementById('new-eq-'+centroId);
+  const nombre = input.value.trim();
+  if(!nombre){toast('Ingresa el nombre del equipo','err');return;}
+  if(allEquipos.find(e=>e.centro_id===centroId&&e.nombre.toLowerCase()===nombre.toLowerCase())){
+    toast('Ya existe ese equipo en este centro','err');return;
+  }
+  try{
+    await sbPost(TBL_EQ,{centro_id:centroId,nombre,activo:true,created_at:new Date().toISOString()});
+    toast('✅ Equipo agregado: '+nombre,'ok');
+    input.value='';
+    await loadAdminCentros();
+  }catch(e){toast('Error: '+e.message,'err');}
+}
+
+function eliminarEquipo(id, nombre, centroId){
+  openModal(
+    'Eliminar equipo',
+    `¿Eliminar el equipo <strong>${nombre}</strong>? Esta acción lo desactivará del formulario de registro.`,
+    async()=>{
+      await sbPatch(TBL_EQ,'id=eq.'+id,{activo:false});
+      toast('Equipo eliminado: '+nombre,'ok');
+      await loadAdminCentros();
+    }
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RESUMEN ADMIN
+══════════════════════════════════════════════════════════════ */
+async function loadAdminSummary(){
+  const hoy    = new Date().toISOString().slice(0,10);
+  const opsAct = allOperadores.filter(o=>o.activo).length;
+  const ctrAct = allCentros.filter(c=>c.activo).length;
+  const eqAct  = allEquipos.filter(e=>e.activo).length;
+  const revHoy = allRecords.filter(r=>r.fecha===hoy).length;
+  const novPend= allRecords.filter(r=>r.novedad&&!r.corregido).length;
+
+  document.getElementById('admin-summary').innerHTML = `
+    <div><div style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted);margin-bottom:4px;">Operadores activos</div>
+      <div style="font-size:22px;font-weight:700;font-family:Georgia,serif;color:var(--navy)">${opsAct}</div></div>
+    <div><div style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted);margin-bottom:4px;">Centros activos</div>
+      <div style="font-size:22px;font-weight:700;font-family:Georgia,serif;color:var(--navy)">${ctrAct}</div></div>
+    <div><div style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted);margin-bottom:4px;">Equipos activos</div>
+      <div style="font-size:22px;font-weight:700;font-family:Georgia,serif;color:var(--navy)">${eqAct}</div></div>
+    <div><div style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted);margin-bottom:4px;">Revisiones hoy</div>
+      <div style="font-size:22px;font-weight:700;font-family:Georgia,serif;color:var(--teal-dark)">${revHoy}</div></div>
+    <div><div style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted);margin-bottom:4px;">Novedades pendientes</div>
+      <div style="font-size:22px;font-weight:700;font-family:Georgia,serif;color:${novPend>0?'var(--ember)':'var(--good)'}">${novPend}</div></div>
+    <div><div style="font-size:10px;text-transform:uppercase;font-weight:700;color:var(--muted);margin-bottom:4px;">Total revisiones</div>
+      <div style="font-size:22px;font-weight:700;font-family:Georgia,serif;color:var(--navy)">${allRecords.length}</div></div>
+  `;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MODAL
+══════════════════════════════════════════════════════════════ */
+function openModal(title, msg, cb){
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-msg').innerHTML = msg;
+  modalCallback = cb;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+function closeModal(){
+  document.getElementById('modal-overlay').classList.remove('show');
+  modalCallback = null;
+}
+document.getElementById('modal-confirm-btn').addEventListener('click', async()=>{
+  closeModal();
+  if(modalCallback) await modalCallback();
+});
+document.getElementById('modal-overlay').addEventListener('click', e=>{
+  if(e.target===document.getElementById('modal-overlay')) closeModal();
+});
+
+/* ══════════════════════════════════════════════════════════════
+   UTILIDADES
+══════════════════════════════════════════════════════════════ */
+function esc(s){
+  if(!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function strColor(s){
+  const P=['#4A6FA5','#2E7D5B','#8E44AD','#E67E22','#2980B9','#C0392B','#16A085','#D4A73C'];
+  let h=0; for(let i=0;i<s.length;i++) h=(h*31+s.charCodeAt(i))>>>0;
+  return P[h%P.length];
+}
+let toastTimer=null;
+function toast(msg,type='ok'){
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.className='show '+type;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{el.className='';},3200);
+}
+</script>
+</body>
+</html>
