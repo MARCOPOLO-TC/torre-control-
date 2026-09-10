@@ -90,6 +90,9 @@ tr:hover td{background:#F0F4FA;}
 .badge.clickable:active{transform:scale(.97);}
 .ev-btn{display:inline-flex;align-items:center;gap:3px;font-size:11px;padding:4px 9px;border-radius:5px;border:1px solid var(--line);background:#EEF1F5;color:var(--steel);text-decoration:none;cursor:pointer;white-space:nowrap;margin-right:4px;font-weight:600;}
 .ev-btn:hover{background:#E3E7ED;}
+.btn-del{display:inline-flex;align-items:center;font-size:11px;padding:4px 9px;border-radius:5px;border:1px solid #F5C6C6;background:#FEF2F2;color:var(--ember);cursor:pointer;white-space:nowrap;font-weight:700;transition:background .15s;}
+.btn-del:hover{background:#FBEAEA;border-color:var(--ember);}
+.btn-del:active{transform:scale(.96);}
 .obs-cell{display:inline-block;vertical-align:middle;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .obs-cell.nov{color:var(--ember);font-weight:600;}
 .obs-cell.ok{color:var(--muted);}
@@ -174,7 +177,7 @@ footer.app-footer{text-align:center;padding:20px;color:var(--muted);font-size:11
       <table>
         <thead><tr>
           <th data-col="id">#</th><th data-col="fecha">Fecha</th><th data-col="operador">Operador</th><th data-col="equipo">Equipo</th>
-          <th data-col="grab_ini">Grab. ini</th><th data-col="grab_fin">Grab. fin</th><th data-col="novedad">Estado</th><th>Observación</th><th>Evidencias</th>
+          <th data-col="grab_ini">Grab. ini</th><th data-col="grab_fin">Grab. fin</th><th data-col="novedad">Estado</th><th>Observación</th><th>Evidencias</th><th>Acción</th>
         </tr></thead>
         <tbody id="tbl-body"></tbody>
       </table>
@@ -450,7 +453,7 @@ function toggleCorregido(id, evt) {
   const yaCorregido = isCorregido(id);
   const nuevoEstado = !yaCorregido;
   // Actualizar local inmediatamente para UI responsiva
-  CORREGIDAS[id] = { corregido: nuevoEstado, fecha: new Date().toISOString().slice(0,10) };
+  CORREGIDAS[id] = { corregido: nuevoEstado, fecha: new Date(new Date().getTime()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10) };
   // Actualizar el registro en ALL
   const rec = ALL.find(r => r.id === id);
   if(rec) rec.corregido = nuevoEstado;
@@ -476,13 +479,47 @@ function toggleCorregido(id, evt) {
     if(!r.ok) console.error('Error guardando corrección en Supabase:', r.status);
   }).catch(e => console.error('Error Supabase:', e));
 }
+async function eliminarRegistro(id, equipo, fecha) {
+  const ok = confirm(
+    `⚠️ ELIMINAR REGISTRO\n\nID: ${id}\nEquipo: ${equipo}\nFecha: ${fecha}\n\n` +
+    `Esta acción es IRREVERSIBLE y borrará el registro definitivamente de Supabase.\n\n¿Confirmas la eliminación?`
+  );
+  if (!ok) return;
+  // Segunda confirmación para evitar borrado accidental
+  const ok2 = confirm(`Confirma una vez más: ¿eliminar el registro ID ${id} de "${equipo}"?`);
+  if (!ok2) return;
+
+  try {
+    const res = await fetch(`${SB_URL_DASH}/rest/v1/cctv_revisiones?id=eq.${id}`, {
+      method: 'DELETE',
+      headers: {
+        'apikey': SB_KEY_DASH,
+        'Authorization': 'Bearer ' + SB_KEY_DASH,
+        'Prefer': 'return=minimal'
+      }
+    });
+    if (!res.ok) {
+      alert(`Error al eliminar (HTTP ${res.status}). Verifica permisos RLS en Supabase.`);
+      return;
+    }
+    // Quitar del arreglo local sin recargar toda la tabla
+    const idx = ALL.findIndex(r => r.id === id);
+    if (idx !== -1) ALL.splice(idx, 1);
+    delete CORREGIDAS[id];
+    applyFilters();
+    alert(`✅ Registro ID ${id} eliminado correctamente.`);
+  } catch(e) {
+    alert('Error de red al intentar eliminar: ' + e.message);
+  }
+}
+
 function exportarCorrecciones() {
   const totalCorregidas = Object.values(CORREGIDAS).filter(c => c && c.corregido).length;
-  const payload = { exportado: new Date().toISOString().slice(0, 10), totalCorregidas, correcciones: CORREGIDAS };
+  const payload = { exportado: new Date(new Date().getTime()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10), totalCorregidas, correcciones: CORREGIDAS };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `Correcciones_CCTV_${new Date().toISOString().slice(0, 10)}.json`;
+  a.href = url; a.download = `Correcciones_CCTV_${new Date(new Date().getTime()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10)}.json`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
@@ -628,6 +665,7 @@ function renderTable() {
       <td>${novBadge(r)}</td>
       <td><span class="obs-cell ${obsClass(r)}" title="${r.obs.replace(/"/g, '&quot;')}">${r.novedad ? r.obs : '—'}</span></td>
       <td style="white-space:nowrap">${evButtons(r)}</td>
+      <td><button class="btn-del" onclick="eliminarRegistro(${r.id}, '${r.equipo.replace(/'/g,"\\'")}', '${fd(r.fecha)}')" title="Eliminar registro">🗑 Eliminar</button></td>
     </tr>`).join('') || `<tr><td colspan="9" style="text-align:center;color:#9aa3af;padding:24px;">Sin resultados para los filtros aplicados.</td></tr>`;
 
   document.getElementById('pager-info').textContent = total ? `${s + 1}–${Math.min(s + PS, total)} de ${total.toLocaleString('es-EC')} registros` : '0 registros';
@@ -964,8 +1002,8 @@ async function exportRows(rows, filename, localTexto) {
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
-function exportarFiltrado() { exportRows(filtered, `EFR-GS-SF-05_Verificacion_CCTV_filtrado_${new Date().toISOString().slice(0, 10)}.xlsx`, resumenFiltrosActivos()); }
-function exportarTodo() { exportRows(ALL, `EFR-GS-SF-05_Verificacion_CCTV_completo_${new Date().toISOString().slice(0, 10)}.xlsx`, 'CONSOLIDADO - TODOS LOS CENTROS DE DISTRIBUCIÓN Y CUSTODIAS'); }
+function exportarFiltrado() { exportRows(filtered, `EFR-GS-SF-05_Verificacion_CCTV_filtrado_${new Date(new Date().getTime()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10)}.xlsx`, resumenFiltrosActivos()); }
+function exportarTodo() { exportRows(ALL, `EFR-GS-SF-05_Verificacion_CCTV_completo_${new Date(new Date().getTime()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10)}.xlsx`, 'CONSOLIDADO - TODOS LOS CENTROS DE DISTRIBUCIÓN Y CUSTODIAS'); }
 
 /* ---------- INIT ---------- */
 // La carga inicial la hace cargarDesdeSB() definida arriba
