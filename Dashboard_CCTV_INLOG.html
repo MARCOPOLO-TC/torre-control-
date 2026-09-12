@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>Revisión Periódica CCTV — INLOG S.A. | Torre de Control</title>
+<title>Revisión Periódica CCTV — INLOG S.A. | Torre de Control · v18</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 :root{
@@ -301,18 +301,74 @@ const SB_URL_DASH = 'https://cnzldoetdehaflihrswi.supabase.co';
 const SB_KEY_DASH = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuemxkb2V0ZGVoYWZsaWhyc3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNjIwNDIsImV4cCI6MjA5NTYzODA0Mn0.FltL4aNuTr0vAJcHtROeY5QyBB3WRb8UjHwGyFD-B5E';
 
 let ALL = [];  // Se carga desde Supabase
+let LAST_ID = 0; // Último ID cargado — para refresh incremental
+
+// Mapa de corrección de nombres (global, reutilizado en carga inicial e incremental)
+const OPERADOR_CANON = {
+  'STAKYN OÑA':    'STALYN OÑA',
+  'Stakyn Oña':    'STALYN OÑA',
+  'Stalyn Oña':    'STALYN OÑA',
+  'STALYN ONA':    'STALYN OÑA',
+  'DIMAS GOMES':   'DIMAS GOMEZ',
+  'Dimas Gómez':   'DIMAS GOMEZ',
+  'Dimas Gomez':   'DIMAS GOMEZ',
+  'DIMAS GOMEZ':   'DIMAS GOMEZ',
+  'Greis Castro':  'GREIS CASTRO',
+  'Melinda Rivera':'MELINDA RIVERA',
+  'Carmen Alvear': 'CARMEN ALVEAR',
+  'Irene Quinga':  'IRENE QUINGA',
+  'Marco Mañay':   'MARCO MAÑAY',
+};
+function canonOp(name) {
+  if (!name) return '';
+  const t = name.trim();
+  return OPERADOR_CANON[t] || t.toUpperCase();
+}
+function normalizarFila(r) {
+  const evs = (r.evidencia || '').split('; ').filter(Boolean);
+  return {
+    id:           r.id,
+    fecha:        r.fecha,
+    operador:     canonOp(r.operador),
+    equipo:       r.equipo,
+    centro:       r.centro || '',
+    turno:        r.turno || '',
+    grab_ini:     r.grab_ini,
+    grab_fin:     r.grab_fin,
+    novedad:      r.novedad,
+    obs:          r.obs || '',
+    ev1:          evs[0] || '',
+    ev2:          evs[1] || '',
+    evidencia:    r.evidencia || '',
+    corregido:    r.corregido,
+    corregido_por: r.corregido_por,
+    corregido_en:  r.corregido_en,
+  };
+}
+
+const SB_SELECT = 'id,fecha,turno,operador,centro,equipo,grab_ini,grab_fin,novedad,obs,evidencia,corregido,corregido_por,corregido_en';
+
+function actualizarHeader() {
+  const sbEl = document.getElementById('sb-status');
+  if(sbEl) sbEl.innerHTML =
+    '<span style="color:#38DCB0">● EN VIVO</span> · Supabase · ' + ALL.length.toLocaleString('es-EC') + ' registros';
+  const fechas = [...new Set(ALL.map(r => r.fecha))].sort();
+  const rngEl = document.getElementById('rng');
+  if(rngEl && fechas.length) rngEl.innerHTML =
+    `${fechas[0]} → ${fechas[fechas.length-1]} &nbsp;|&nbsp; <b>${ALL.length.toLocaleString('es-EC')}</b> revisiones registradas`;
+}
 
 async function cargarDesdeSB() {
+  // CARGA INICIAL COMPLETA (paginada de 500 en 500)
   const loadingEl = document.getElementById('loading-overlay');
   if(loadingEl) loadingEl.style.display = 'flex';
   try {
-    // Cargar en páginas de 500 (límite Supabase free)
     let allRows = [];
     let offset = 0;
     const pageSize = 500;
     while(true) {
       const res = await fetch(
-        `${SB_URL_DASH}/rest/v1/cctv_revisiones?order=id.asc&limit=${pageSize}&offset=${offset}&select=id,fecha,turno,operador,centro,equipo,grab_ini,grab_fin,novedad,obs,evidencia,corregido,corregido_por,corregido_en`,
+        `${SB_URL_DASH}/rest/v1/cctv_revisiones?order=id.asc&limit=${pageSize}&offset=${offset}&select=${SB_SELECT}`,
         { headers: {
             'apikey': SB_KEY_DASH,
             'Authorization': 'Bearer ' + SB_KEY_DASH,
@@ -323,88 +379,65 @@ async function cargarDesdeSB() {
         }
       );
       if(!res.ok) throw new Error('HTTP ' + res.status);
-      const page = await res.json();
-      allRows = allRows.concat(page);
-      // Actualizar overlay con progreso
+      const pg = await res.json();
+      allRows = allRows.concat(pg);
       if(loadingEl) {
         const txt = loadingEl.querySelector('#overlay-txt');
         if(txt) txt.textContent = `Cargando... ${allRows.length} registros`;
       }
-      if(page.length < pageSize) break;
+      if(pg.length < pageSize) break;
       offset += pageSize;
     }
-    // Mapa de corrección de nombres (variantes mal escritas → nombre canónico)
-    const OPERADOR_CANON = {
-      'STAKYN OÑA':    'STALYN OÑA',
-      'Stakyn Oña':    'STALYN OÑA',
-      'Stalyn Oña':    'STALYN OÑA',
-      'STALYN ONA':    'STALYN OÑA',
-      'DIMAS GOMES':   'DIMAS GOMEZ',
-      'Dimas Gómez':   'DIMAS GOMEZ',
-      'Dimas Gomez':   'DIMAS GOMEZ',
-      'DIMAS GOMEZ':   'DIMAS GOMEZ',
-      'Greis Castro':  'GREIS CASTRO',
-      'Melinda Rivera':'MELINDA RIVERA',
-      'Carmen Alvear': 'CARMEN ALVEAR',
-      'Irene Quinga':  'IRENE QUINGA',
-      'Marco Mañay':   'MARCO MAÑAY',
-    };
-    function canonOp(name) {
-      if (!name) return '';
-      const t = name.trim();
-      return OPERADOR_CANON[t] || t.toUpperCase();
-    }
-    // Normalizar al formato que espera el dashboard
-    ALL = allRows.map(r => {
-      // Evidencias: separar por "; "
-      const evs = (r.evidencia || '').split('; ').filter(Boolean);
-      return {
-        id:        r.id,
-        fecha:     r.fecha,
-        operador:  canonOp(r.operador),
-        equipo:    r.equipo,
-        centro:    r.centro || '',
-        turno:     r.turno || '',
-        grab_ini:  r.grab_ini,
-        grab_fin:  r.grab_fin,
-        novedad:   r.novedad,
-        obs:       r.obs || '',
-        ev1:       evs[0] || '',
-        ev2:       evs[1] || '',
-        evidencia: r.evidencia || '',
-        corregido: r.corregido,
-        corregido_por: r.corregido_por,
-        corregido_en:  r.corregido_en,
-      };
-    });
-    
+
+    ALL = allRows.map(normalizarFila);
+    LAST_ID = ALL.length ? Math.max(...ALL.map(r => r.id)) : 0;
+
     if(loadingEl) loadingEl.style.display = 'none';
-    const sbEl = document.getElementById('sb-status');
-    if(sbEl) sbEl.innerHTML = 
-      '<span style="color:#38DCB0">● EN VIVO</span> · Supabase · ' + ALL.length.toLocaleString('es-EC') + ' registros';
-    
-    // Iniciar dashboard
-    const fechas = [...new Set(ALL.map(r => r.fecha))].sort();
-    const rngEl = document.getElementById('rng');
-    if(rngEl) rngEl.innerHTML = 
-      `${fechas[0]} → ${fechas[fechas.length-1]} &nbsp;|&nbsp; <b>${ALL.length.toLocaleString('es-EC')}</b> revisiones registradas`;
+    actualizarHeader();
     loadCorregidas();
     initSelects();
     applyFilters();
-    
+
   } catch(err) {
     if(loadingEl) loadingEl.style.display = 'none';
     const sbErrEl = document.getElementById('sb-status');
-    if(sbErrEl) sbErrEl.innerHTML = 
+    if(sbErrEl) sbErrEl.innerHTML =
       '<span style="color:#C0392B">● ERROR</span> · ' + err.message;
     console.error('Error cargando desde Supabase:', err);
   }
 }
 
-// Auto-refrescar cada 2 minutos
-setInterval(() => {
-  cargarDesdeSB();
-}, 120000);
+async function refreshIncremental() {
+  // Solo trae registros con id > LAST_ID — egress mínimo
+  if (!LAST_ID) return;
+  try {
+    const res = await fetch(
+      `${SB_URL_DASH}/rest/v1/cctv_revisiones?order=id.asc&id=gt.${LAST_ID}&select=${SB_SELECT}`,
+      { headers: { 'apikey': SB_KEY_DASH, 'Authorization': 'Bearer ' + SB_KEY_DASH } }
+    );
+    if(!res.ok) return;
+    const nuevos = await res.json();
+    if(!nuevos.length) return; // Nada nuevo — 0 egress adicional
+
+    const normalizados = nuevos.map(normalizarFila);
+    ALL = ALL.concat(normalizados);
+    LAST_ID = Math.max(...ALL.map(r => r.id));
+
+    const sbEl = document.getElementById('sb-status');
+    if(sbEl) sbEl.innerHTML =
+      '<span style="color:#38DCB0">● EN VIVO</span> · Supabase · ' + ALL.length.toLocaleString('es-EC') +
+      ' registros <span style="color:#38DCB0;font-size:10px">(+' + normalizados.length + ' nuevos)</span>';
+
+    actualizarHeader();
+    initSelects();
+    applyFilters();
+  } catch(e) {
+    console.warn('Refresh incremental falló silenciosamente:', e.message);
+  }
+}
+
+// Auto-refrescar cada 5 minutos — INCREMENTAL (egress mínimo)
+setInterval(refreshIncremental, 300000);
 
 
 /* Correcciones ya confirmadas al momento de generar este archivo (se llena en cada
@@ -605,23 +638,36 @@ function resetFiltros() {
 
 /* ---------- KPIs ---------- */
 function updateKPIs() {
-  // KPIs sobre el conjunto filtrado activo (= ALL cuando no hay filtros)
+  const hayFiltro = filtered.length < ALL.length;
+  // base = registros filtrados activos
   const base  = filtered;
   const total = base.length;
   const nov   = base.filter(r => r.novedad).length;
   const fixed = base.filter(r => r.novedad && isCorregido(r.id)).length;
   const ok    = total - nov;
-  document.getElementById('k-total').textContent = total.toLocaleString('es-EC');
+
+  // KPI "Total revisiones":
+  //   - Sin filtro: muestra el total global de ALL
+  //   - Con filtro: muestra "filtrado / total global" para contexto
+  const kTotal = document.getElementById('k-total');
+  if (hayFiltro) {
+    kTotal.innerHTML = total.toLocaleString('es-EC') +
+      '<span style="display:block;font-size:11px;color:var(--muted);font-family:inherit;font-weight:500;margin-top:2px">de ' +
+      ALL.length.toLocaleString('es-EC') + ' total</span>';
+  } else {
+    kTotal.textContent = ALL.length.toLocaleString('es-EC');
+  }
+
   document.getElementById('k-nov').textContent   = nov.toLocaleString('es-EC');
   document.getElementById('k-ok').textContent    = ok.toLocaleString('es-EC');
   document.getElementById('k-fix').textContent   = fixed.toLocaleString('es-EC');
   document.getElementById('k-eq').textContent    = new Set(base.map(r => r.equipo)).size;
   document.getElementById('k-op').textContent    = new Set(base.map(r => r.operador.trim().toUpperCase())).size;
-  document.getElementById('k-pct').textContent   = total ? (((total - nov + fixed) / total) * 100).toFixed(1) + '%' : '—';
-  // Contador de registros filtrados vs total global
-  const nf = filtered.length;
-  document.getElementById('f-cnt').textContent = nf < ALL.length
-    ? nf.toLocaleString('es-EC') + ' de ' + ALL.length.toLocaleString('es-EC')
+  document.getElementById('k-pct').textContent   = total ? (((ok + fixed) / total) * 100).toFixed(1) + '%' : '—';
+
+  // Contador inferior filtros
+  document.getElementById('f-cnt').textContent = hayFiltro
+    ? total.toLocaleString('es-EC') + ' de ' + ALL.length.toLocaleString('es-EC') + ' registros'
     : ALL.length.toLocaleString('es-EC') + ' registros';
 }
 
