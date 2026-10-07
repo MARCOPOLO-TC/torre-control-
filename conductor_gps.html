@@ -33,8 +33,27 @@
   .dato b{font-size:16px}
   .aviso{font-size:13px;color:var(--suave);line-height:1.45}
   .aviso b{color:var(--texto)}
-  .oculto{display:none}
+  .oculto{display:none!important}
   a.link{color:var(--suave);font-size:14px;display:block;text-align:center;margin-top:12px}
+  .tit{font-size:16px;font-weight:700;margin-bottom:4px}
+  .sub{font-size:13px;color:var(--suave)}
+  .evs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .ev{margin:0;padding:14px 8px;font-size:15px;line-height:1.25;background:#fff;color:var(--texto);border:2px solid var(--borde);display:flex;flex-direction:column;align-items:center;gap:4px}
+  .ev i{font-style:normal;font-size:26px}
+  .ev:active{transform:scale(.97)}
+  .ev.salida{border-color:#0b5cab} .ev.llegada{border-color:#6a3fb5} .ev.entrega{border-color:#14853b} .ev.parada{border-color:#b26a00}
+  .ev.novedad{grid-column:1/-1;border-color:#c62828;color:#c62828;flex-direction:row;justify-content:center;gap:10px}
+  .ev:disabled{opacity:.5}
+  .hist{margin-top:12px;border-top:1px solid var(--borde)}
+  .hist div{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px dashed var(--borde);font-size:14px}
+  .hist small{color:var(--suave);white-space:nowrap}
+  .hist .pend{color:var(--ambar)}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:#1b2430;color:#fff;padding:14px 20px;border-radius:12px;font-size:16px;font-weight:600;transition:transform .25s;z-index:20;max-width:90vw;text-align:center}
+  .toast.ver{transform:translateX(-50%) translateY(0)}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+  .modal .caja{background:#fff;width:100%;max-width:480px;border-radius:16px 16px 0 0;padding:18px}
+  textarea{width:100%;font-size:17px;padding:12px;border:1px solid var(--borde);border-radius:10px;min-height:100px;font-family:inherit}
+  .fila2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 </style>
 </head>
 <body>
@@ -71,6 +90,19 @@
       <div class="err" id="errGps"></div>
     </div>
 
+    <div class="card">
+      <div class="tit">Reportar a Torre de Control</div>
+      <div class="sub">Toca el botón cuando ocurra. Se envía con tu hora y ubicación; ya no hace falta llamar.</div>
+      <div class="evs">
+        <button class="ev salida"  data-tipo="SALIDA_CD"><i>🚚</i>Salí del CD</button>
+        <button class="ev llegada" data-tipo="LLEGADA_CLIENTE"><i>📍</i>Llegué al cliente</button>
+        <button class="ev entrega" data-tipo="ENTREGA"><i>✅</i>Entrega realizada</button>
+        <button class="ev parada"  data-tipo="PARADA"><i>⏸️</i>Parada / descanso</button>
+        <button class="ev novedad" data-tipo="NOVEDAD"><i>⚠️</i>Reportar novedad</button>
+      </div>
+      <div class="hist" id="hist"></div>
+    </div>
+
     <div class="card aviso">
       <b>Importante:</b> mantén esta pantalla abierta mientras conduces. La app intenta dejar la pantalla encendida; si bloqueas el celular o cambias de aplicación, el navegador pausa el GPS y la consola te verá como <b>“sin señal”</b>.
       Si pierdes cobertura, las posiciones se guardan y se envían al recuperar datos.
@@ -78,6 +110,23 @@
     <a href="#" class="link" id="btnSalir">Cerrar sesión</a>
   </section>
 </main>
+
+<!-- Confirmación / novedad -->
+<div class="modal oculto" id="modal">
+  <div class="caja">
+    <div class="tit" id="mTit"></div>
+    <div class="sub" id="mSub"></div>
+    <div id="mNotaWrap" class="oculto">
+      <label for="mNota">Describe la novedad (obligatorio)</label>
+      <textarea id="mNota" maxlength="500" placeholder="Ej.: llanta baja, retén policial, cliente cerrado, vía cerrada…"></textarea>
+    </div>
+    <div class="fila2">
+      <button class="gris" id="mNo">Cancelar</button>
+      <button class="verde" id="mSi">Enviar</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
 
 <script>
 /* ====== CONFIGURACIÓN ====== */
@@ -129,6 +178,7 @@ $('btnSalir').onclick = e => {
   e.preventDefault();
   if(watchId !== null && !confirm('El rastreo está activo. ¿Detener y cerrar sesión?')) return;
   detener(); sesion = null; store.del('gps_sesion'); store.del('gps_activo');
+  historial = []; store.del('gps_hist_ev'); pintarHist();
   $('vPanel').classList.add('oculto'); $('vLogin').classList.remove('oculto');
 };
 
@@ -138,6 +188,7 @@ function mostrarPanel(){
   $('lblPlaca').textContent = sesion.placa || 'SIN PLACA';
   $('dCola').textContent = cola.length;
   if(store.get('gps_activo', false)) iniciar();
+  pintarHist(); vaciarColaEv();
 }
 
 /* ---------- RASTREO ---------- */
@@ -217,6 +268,102 @@ async function vaciarCola(){
   store.set('gps_cola', cola); $('dCola').textContent = cola.length;
   enviando = false;
 }
+
+/* ---------- EVENTOS (reemplazan la llamada del operador) ---------- */
+const EVENTOS = {
+  SALIDA_CD:      { txt:'Salí del CD',        ico:'🚚' },
+  LLEGADA_CLIENTE:{ txt:'Llegué al cliente',  ico:'📍' },
+  ENTREGA:        { txt:'Entrega realizada',  ico:'✅' },
+  PARADA:         { txt:'Parada / descanso',  ico:'⏸️' },
+  NOVEDAD:        { txt:'Novedad',            ico:'⚠️' }
+};
+let colaEv = store.get('gps_cola_ev', []);
+let historial = store.get('gps_hist_ev', []);   // [{tipo,nota,ts,ok}]
+let tipoSel = null;
+
+document.querySelectorAll('.ev').forEach(b => b.onclick = () => abrirModal(b.dataset.tipo));
+
+function abrirModal(tipo){
+  tipoSel = tipo;
+  const e = EVENTOS[tipo];
+  $('mTit').textContent = `${e.ico} ${e.txt}`;
+  $('mSub').textContent = tipo === 'NOVEDAD' ? 'Torre de Control la verá de inmediato.' : '¿Confirmas que quieres enviar este reporte?';
+  $('mNotaWrap').classList.toggle('oculto', tipo !== 'NOVEDAD');
+  $('mNota').value = '';
+  $('modal').classList.remove('oculto');
+  if(tipo === 'NOVEDAD') setTimeout(() => $('mNota').focus(), 100);
+}
+$('mNo').onclick = () => $('modal').classList.add('oculto');
+$('mSi').onclick = async () => {
+  const nota = $('mNota').value.trim();
+  if(tipoSel === 'NOVEDAD' && !nota){ $('mNota').focus(); toast('Escribe qué pasó'); return; }
+  $('modal').classList.add('oculto');
+  await enviarEvento(tipoSel, nota);
+};
+
+function posicionActual(){
+  // Usa la posición del rastreo si es reciente; si no, pide una nueva (máx. 12 s)
+  if(ultimoFix && Date.now() - ultimoFix.timestamp < 60000) return Promise.resolve(ultimoFix);
+  return new Promise(res => {
+    if(!('geolocation' in navigator)) return res(null);
+    navigator.geolocation.getCurrentPosition(p => { ultimoFix = ultimoFix || p; res(p); }, () => res(null),
+      { enableHighAccuracy:true, maximumAge:30000, timeout:12000 });
+  });
+}
+
+async function enviarEvento(tipo, nota){
+  document.querySelectorAll('.ev').forEach(b => b.disabled = true);
+  toast('Obteniendo ubicación…', 15000);
+  const p = await posicionActual();
+  const ts = new Date().toISOString();
+  colaEv.push({
+    p_codigo:sesion.codigo, p_pin:sesion.pin, p_tipo:tipo, p_nota:nota || null,
+    p_lat: p ? p.coords.latitude : null, p_lng: p ? p.coords.longitude : null,
+    p_precision: p && p.coords.accuracy != null ? Math.round(p.coords.accuracy) : null,
+    p_registrado_en: ts
+  });
+  historial.unshift({ tipo, nota, ts, ok:false });
+  historial = historial.slice(0, 30);
+  store.set('gps_cola_ev', colaEv); store.set('gps_hist_ev', historial);
+  pintarHist();
+  const ok = await vaciarColaEv();
+  toast(ok ? `${EVENTOS[tipo].ico} Enviado a Torre de Control` + (p ? '' : ' (sin ubicación)') : '📶 Sin datos: se enviará al recuperar señal', 3500);
+  document.querySelectorAll('.ev').forEach(b => b.disabled = false);
+}
+
+let enviandoEv = false;
+async function vaciarColaEv(){
+  if(enviandoEv || !colaEv.length) return !colaEv.length;
+  enviandoEv = true;
+  try{
+    while(colaEv.length){
+      await rpc('gps_evento', colaEv[0]);
+      const h = historial.find(x => x.ts === colaEv[0].p_registrado_en); if(h) h.ok = true;
+      colaEv.shift();
+    }
+  }catch(e){
+    if(String(e.message).includes('Credenciales')){ colaEv = []; toast('Tu usuario fue desactivado. Comunícate con Torre de Control.', 5000); }
+  }
+  store.set('gps_cola_ev', colaEv); store.set('gps_hist_ev', historial);
+  pintarHist();
+  enviandoEv = false;
+  return !colaEv.length;
+}
+
+function pintarHist(){
+  const hoy = new Date().toDateString();
+  const items = historial.filter(h => new Date(h.ts).toDateString() === hoy);
+  $('hist').innerHTML = items.length ? items.map(h => `<div><span>${EVENTOS[h.tipo].ico} ${EVENTOS[h.tipo].txt}${h.nota ? ' · ' + h.nota.replace(/[<>&]/g,'') : ''}</span>
+    <small class="${h.ok ? '' : 'pend'}">${new Date(h.ts).toLocaleTimeString('es-EC',{hour:'2-digit',minute:'2-digit'})} ${h.ok ? '✓' : '⏳'}</small></div>`).join('') : '';
+}
+
+let toastT = null;
+function toast(msg, ms = 2500){
+  $('toast').textContent = msg; $('toast').classList.add('ver');
+  clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.remove('ver'), ms);
+}
+window.addEventListener('online', vaciarColaEv);
+setInterval(() => { if(colaEv.length) vaciarColaEv(); }, 30000);
 
 function setEstado(cls, txt){ $('estado').className = 'estado ' + cls; $('lblEstado').textContent = txt; }
 
