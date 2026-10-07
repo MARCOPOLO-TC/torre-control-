@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#0b5cab">
+<title>INLOG · Rastreo Conductor</title>
+<style>
+  :root{--azul:#0b5cab;--verde:#14853b;--rojo:#c62828;--ambar:#b26a00;--fondo:#f3f6fa;--tarjeta:#fff;--texto:#1b2430;--suave:#5b6878;--borde:#dde3ea}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--fondo);color:var(--texto);min-height:100vh}
+  header{background:var(--azul);color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+  header b{font-size:17px;letter-spacing:.3px}
+  header small{opacity:.85}
+  main{padding:16px;max-width:480px;margin:0 auto}
+  .card{background:var(--tarjeta);border:1px solid var(--borde);border-radius:14px;padding:18px;margin-bottom:14px}
+  label{display:block;font-size:13px;color:var(--suave);margin:10px 0 4px}
+  input{width:100%;font-size:18px;padding:12px;border:1px solid var(--borde);border-radius:10px;background:#fff}
+  button{width:100%;font-size:18px;font-weight:600;padding:16px;border:0;border-radius:12px;cursor:pointer;color:#fff;background:var(--azul);margin-top:14px}
+  button.verde{background:var(--verde)} button.rojo{background:var(--rojo)} button.gris{background:#8a96a5}
+  .err{color:var(--rojo);font-size:14px;margin-top:10px;min-height:18px}
+  .quien{font-size:20px;font-weight:700}
+  .placa{display:inline-block;margin-top:4px;padding:3px 10px;border:2px solid var(--texto);border-radius:6px;font-weight:700;letter-spacing:1px}
+  .estado{display:flex;align-items:center;gap:12px;font-size:18px;font-weight:600}
+  .punto{width:16px;height:16px;border-radius:50%;background:#8a96a5;flex:none}
+  .on .punto{background:var(--verde);box-shadow:0 0 0 0 rgba(20,133,59,.6);animation:pulso 1.6s infinite}
+  .warn .punto{background:var(--ambar)}
+  .off .punto{background:var(--rojo)}
+  @keyframes pulso{70%{box-shadow:0 0 0 14px rgba(20,133,59,0)}100%{box-shadow:0 0 0 0 rgba(20,133,59,0)}}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .dato{background:var(--fondo);border-radius:10px;padding:10px}
+  .dato span{display:block;font-size:12px;color:var(--suave)}
+  .dato b{font-size:16px}
+  .aviso{font-size:13px;color:var(--suave);line-height:1.45}
+  .aviso b{color:var(--texto)}
+  .oculto{display:none}
+  a.link{color:var(--suave);font-size:14px;display:block;text-align:center;margin-top:12px}
+</style>
+</head>
+<body>
+<header><div><b>INLOG · Torre de Control</b><br><small>Rastreo de conductor</small></div><small id="hora"></small></header>
+<main>
+
+  <!-- LOGIN -->
+  <section id="vLogin" class="card">
+    <div class="quien">Ingreso del conductor</div>
+    <label for="codigo">Código / cédula</label>
+    <input id="codigo" inputmode="numeric" autocomplete="username">
+    <label for="pin">PIN</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="current-password">
+    <button id="btnLogin">Ingresar</button>
+    <div class="err" id="errLogin"></div>
+  </section>
+
+  <!-- PANEL -->
+  <section id="vPanel" class="oculto">
+    <div class="card">
+      <div class="quien" id="lblNombre"></div>
+      <div class="placa" id="lblPlaca"></div>
+    </div>
+
+    <div class="card" id="cardEstado">
+      <div class="estado" id="estado"><div class="punto"></div><div id="lblEstado">Rastreo detenido</div></div>
+      <div class="grid">
+        <div class="dato"><span>Último envío</span><b id="dUlt">—</b></div>
+        <div class="dato"><span>Precisión GPS</span><b id="dPrec">—</b></div>
+        <div class="dato"><span>Velocidad</span><b id="dVel">—</b></div>
+        <div class="dato"><span>Pendientes (sin señal)</span><b id="dCola">0</b></div>
+      </div>
+      <button id="btnToggle" class="verde">▶ Iniciar rastreo</button>
+      <div class="err" id="errGps"></div>
+    </div>
+
+    <div class="card aviso">
+      <b>Importante:</b> mantén esta pantalla abierta mientras conduces. La app intenta dejar la pantalla encendida; si bloqueas el celular o cambias de aplicación, el navegador pausa el GPS y la consola te verá como <b>“sin señal”</b>.
+      Si pierdes cobertura, las posiciones se guardan y se envían al recuperar datos.
+    </div>
+    <a href="#" class="link" id="btnSalir">Cerrar sesión</a>
+  </section>
+</main>
+
+<script>
+/* ====== CONFIGURACIÓN ====== */
+const SUPABASE_URL = 'https://cnzldoetdehaflihrswi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuemxkb2V0ZGVoYWZsaWhyc3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNjIwNDIsImV4cCI6MjA5NTYzODA0Mn0.FltL4aNuTr0vAJcHtROeY5QyBB3WRb8UjHwGyFD-B5E';
+const INTERVALO_ENVIO_S = 15;      // cada cuántos segundos se reporta
+/* =========================== */
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+
+let sesion = store.get('gps_sesion', null);     // {codigo,pin,nombre,placa}
+let cola = store.get('gps_cola', []);
+let watchId = null, timer = null, ultimoFix = null, ultimoEnviadoTs = 0, wakeLock = null, bateria = null;
+
+async function rpc(fn, body){
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method:'POST',
+    headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json' },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok){ const t = await r.text(); throw new Error(t || r.status); }
+  return r.json();
+}
+
+/* ---------- LOGIN ---------- */
+$('btnLogin').onclick = async () => {
+  const codigo = $('codigo').value.trim(), pin = $('pin').value.trim();
+  $('errLogin').textContent = '';
+  if(!codigo || !pin){ $('errLogin').textContent = 'Ingresa código y PIN.'; return; }
+  $('btnLogin').disabled = true; $('btnLogin').textContent = 'Verificando…';
+  try{
+    const res = await rpc('gps_login', { p_codigo:codigo, p_pin:pin });
+    if(!res.length) throw new Error('Código o PIN incorrectos.');
+    sesion = { codigo, pin, nombre:res[0].nombre, placa:res[0].placa || '' };
+    store.set('gps_sesion', sesion);
+    mostrarPanel();
+  }catch(e){
+    $('errLogin').textContent = e.message.includes('incorrectos') ? e.message : 'No se pudo conectar. Revisa tus datos móviles.';
+  }
+  $('btnLogin').disabled = false; $('btnLogin').textContent = 'Ingresar';
+};
+
+$('btnSalir').onclick = e => {
+  e.preventDefault();
+  if(watchId !== null && !confirm('El rastreo está activo. ¿Detener y cerrar sesión?')) return;
+  detener(); sesion = null; store.del('gps_sesion'); store.del('gps_activo');
+  $('vPanel').classList.add('oculto'); $('vLogin').classList.remove('oculto');
+};
+
+function mostrarPanel(){
+  $('vLogin').classList.add('oculto'); $('vPanel').classList.remove('oculto');
+  $('lblNombre').textContent = sesion.nombre;
+  $('lblPlaca').textContent = sesion.placa || 'SIN PLACA';
+  $('dCola').textContent = cola.length;
+  if(store.get('gps_activo', false)) iniciar();
+}
+
+/* ---------- RASTREO ---------- */
+$('btnToggle').onclick = () => watchId === null ? iniciar() : detener();
+
+function iniciar(){
+  $('errGps').textContent = '';
+  if(!('geolocation' in navigator)){ $('errGps').textContent = 'Este celular no permite GPS en el navegador.'; return; }
+  watchId = navigator.geolocation.watchPosition(onFix, onErr, { enableHighAccuracy:true, maximumAge:5000, timeout:30000 });
+  timer = setInterval(tick, INTERVALO_ENVIO_S * 1000);
+  store.set('gps_activo', true);
+  pedirWakeLock();
+  if(navigator.getBattery) navigator.getBattery().then(b => { bateria = b; }).catch(()=>{});
+  $('btnToggle').textContent = '■ Detener rastreo'; $('btnToggle').className = 'rojo';
+  setEstado('warn', 'Buscando señal GPS…');
+}
+
+function detener(){
+  if(watchId !== null) navigator.geolocation.clearWatch(watchId);
+  clearInterval(timer); watchId = null; timer = null;
+  store.set('gps_activo', false);
+  if(wakeLock){ wakeLock.release().catch(()=>{}); wakeLock = null; }
+  $('btnToggle').textContent = '▶ Iniciar rastreo'; $('btnToggle').className = 'verde';
+  setEstado('', 'Rastreo detenido');
+}
+
+function onFix(p){
+  ultimoFix = p;
+  $('dPrec').textContent = Math.round(p.coords.accuracy) + ' m';
+  const v = p.coords.speed; $('dVel').textContent = (v != null && !isNaN(v)) ? Math.round(v * 3.6) + ' km/h' : '—';
+  if(!ultimoEnviadoTs) tick();          // primer envío inmediato
+}
+
+function onErr(e){
+  const msg = { 1:'Permiso de ubicación denegado. Actívalo en los ajustes del navegador.', 2:'Sin señal GPS.', 3:'El GPS tarda en responder…' }[e.code] || e.message;
+  $('errGps').textContent = msg;
+  setEstado(e.code === 1 ? 'off' : 'warn', e.code === 1 ? 'Sin permiso de ubicación' : 'Buscando señal GPS…');
+}
+
+async function tick(){
+  if(!ultimoFix || !sesion) return;
+  const c = ultimoFix.coords;
+  cola.push({
+    p_codigo:sesion.codigo, p_pin:sesion.pin,
+    p_lat:c.latitude, p_lng:c.longitude,
+    p_precision: c.accuracy != null ? Math.round(c.accuracy) : null,
+    p_velocidad: (c.speed != null && !isNaN(c.speed)) ? +(c.speed * 3.6).toFixed(1) : null,
+    p_rumbo: (c.heading != null && !isNaN(c.heading)) ? Math.round(c.heading) : null,
+    p_bateria: bateria ? Math.round(bateria.level * 100) : null,
+    p_registrado_en: new Date().toISOString()
+  });
+  if(cola.length > 2000) cola = cola.slice(-2000);
+  ultimoEnviadoTs = Date.now();
+  await vaciarCola();
+}
+
+let enviando = false;
+async function vaciarCola(){
+  if(enviando || !cola.length) return;
+  enviando = true;
+  try{
+    while(cola.length){
+      await rpc('gps_reportar', cola[0]);
+      cola.shift();
+      $('dUlt').textContent = new Date().toLocaleTimeString('es-EC', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    }
+    setEstado('on', 'Transmitiendo ubicación');
+    $('errGps').textContent = '';
+  }catch(e){
+    if(String(e.message).includes('Credenciales')){
+      detener(); $('errGps').textContent = 'Tu usuario fue desactivado. Comunícate con Torre de Control.';
+      cola = [];
+    } else {
+      setEstado('warn', 'Sin datos móviles · guardando');
+    }
+  }
+  store.set('gps_cola', cola); $('dCola').textContent = cola.length;
+  enviando = false;
+}
+
+function setEstado(cls, txt){ $('estado').className = 'estado ' + cls; $('lblEstado').textContent = txt; }
+
+async function pedirWakeLock(){
+  try{ if('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); }catch(e){}
+}
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible' && watchId !== null){ pedirWakeLock(); tick(); }
+});
+window.addEventListener('online', vaciarCola);
+
+setInterval(() => { $('hora').textContent = new Date().toLocaleTimeString('es-EC', {hour:'2-digit', minute:'2-digit'}); }, 1000);
+
+if(sesion) mostrarPanel();
+</script>
+</body>
+</html>
