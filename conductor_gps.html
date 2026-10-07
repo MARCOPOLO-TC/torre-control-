@@ -84,7 +84,7 @@
     <!-- Sin ruta -->
     <div class="card" id="cSinRuta">
       <div class="tit">No tienes una ruta activa</div>
-      <div class="sub">Al salir a ruta, toca <b>Iniciar ruta</b>. Desde ese momento debes reportarte:<br>
+      <div class="sub">Al salir a ruta, toca <b>Iniciar ruta</b> y escribe la <b>placa del vehículo</b> de hoy. Desde ese momento debes reportarte:<br>
         · de 06:00 a 22:00 <b>cada 2 horas</b><br>· de 22:00 a 06:00 <b>cada hora</b></div>
       <button class="verde btnGrande" id="btnInicio">🟢 Iniciar ruta</button>
     </div>
@@ -124,6 +124,10 @@
   <div class="caja">
     <div class="tit" id="mTit"></div>
     <div class="sub" id="mSub"></div>
+    <div id="mPlacaWrap" class="oculto">
+      <label for="mPlaca">Placa del vehículo que manejas hoy (obligatorio)</label>
+      <input id="mPlaca" maxlength="9" autocomplete="off" placeholder="Ej.: PBC-4521" style="text-transform:uppercase;font-size:24px;font-weight:700;letter-spacing:2px;text-align:center">
+    </div>
     <div id="mNotaWrap" class="oculto">
       <label for="mNota">Describe la novedad (obligatorio)</label>
       <textarea id="mNota" maxlength="500" placeholder="Ej.: llanta baja, retén policial, cliente cerrado, vía cerrada…"></textarea>
@@ -205,8 +209,17 @@ $('btnSalir').onclick = e => {
 function mostrarPanel(){
   $('vLogin').classList.add('oculto'); $('vPanel').classList.remove('oculto');
   $('lblNombre').textContent = sesion.nombre;
-  $('lblPlaca').textContent = sesion.placa || 'SIN PLACA';
   pintarRuta(); pintarHist(); vaciarColaEv(); sincronizarEstado();
+}
+function pintarPlaca(){
+  $('lblPlaca').textContent = ruta && ruta.placa ? ruta.placa : 'Sin ruta activa';
+  $('lblPlaca').style.borderStyle = ruta && ruta.placa ? 'solid' : 'dashed';
+}
+// Placas de Ecuador: 3 letras + 3 o 4 números (ABC-1234). Se normaliza con guion.
+function normalizarPlaca(v){
+  const s = String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const m = s.match(/^([A-Z]{2,3})(\d{3,4})$/);
+  return m ? `${m[1]}-${m[2]}` : null;
 }
 
 // Recupera la ruta desde la base (si cambió de celular, borró datos o la Torre registró contacto)
@@ -217,7 +230,7 @@ async function sincronizarEstado(){
     const e = r && r[0];
     if(e && e.inicio_ruta && !e.fin_ruta){
       const base = [e.ultimo_reporte, e.ultimo_contacto, e.inicio_ruta].filter(Boolean).sort().pop();
-      ruta = { inicio:e.inicio_ruta, ultimo: base };
+      ruta = { inicio:e.inicio_ruta, ultimo: base, placa: e.placa || (ruta && ruta.placa) || '' };
     } else ruta = null;
     store.set('gps_ruta', ruta); pintarRuta();
   }catch(err){ /* sin conexión: se queda con lo local */ }
@@ -231,6 +244,7 @@ function dur(ms){
 }
 function pintarRuta(){
   const activa = !!ruta;
+  pintarPlaca();
   $('cSinRuta').classList.toggle('oculto', activa);
   $('cEnRuta').classList.toggle('oculto', !activa);
   if(!activa) return;
@@ -295,16 +309,25 @@ function abrirModal(tipo){
     NOVEDAD:'Torre de Control la verá de inmediato.'
   }[tipo] || '¿Confirmas que quieres enviar este reporte?';
   $('mNotaWrap').classList.toggle('oculto', tipo !== 'NOVEDAD');
+  $('mPlacaWrap').classList.toggle('oculto', tipo !== 'INICIO_RUTA');
   $('mNota').value = '';
+  $('mPlaca').value = store.get('gps_ultima_placa', '') || '';   // sugiere la última placa usada
   $('modal').classList.remove('oculto');
   if(tipo === 'NOVEDAD') setTimeout(() => $('mNota').focus(), 100);
+  if(tipo === 'INICIO_RUTA') setTimeout(() => { $('mPlaca').focus(); $('mPlaca').select(); }, 100);
 }
 $('mNo').onclick = () => $('modal').classList.add('oculto');
 $('mSi').onclick = async () => {
   const nota = $('mNota').value.trim();
   if(tipoSel === 'NOVEDAD' && !nota){ $('mNota').focus(); toast('Escribe qué pasó'); return; }
+  let placa = null;
+  if(tipoSel === 'INICIO_RUTA'){
+    placa = normalizarPlaca($('mPlaca').value);
+    if(!placa){ $('mPlaca').focus(); toast('Escribe la placa completa, ej.: PBC-4521'); return; }
+    store.set('gps_ultima_placa', placa);
+  }
   $('modal').classList.add('oculto');
-  await enviarEvento(tipoSel, nota);
+  await enviarEvento(tipoSel, nota, placa);
 };
 
 function posicionActual(){
@@ -314,20 +337,21 @@ function posicionActual(){
   });
 }
 
-async function enviarEvento(tipo, nota){
+async function enviarEvento(tipo, nota, placaNueva){
   const botones = document.querySelectorAll('#vPanel button');
   botones.forEach(b => b.disabled = true);
   toast('Obteniendo ubicación…', 15000);
   const p = await posicionActual();
   const ts = new Date().toISOString();
+  const placa = placaNueva || (ruta && ruta.placa) || null;
   colaEv.push({
     p_codigo:sesion.codigo, p_pin:sesion.pin, p_tipo:tipo, p_nota:nota || null,
     p_lat: p ? p.coords.latitude : null, p_lng: p ? p.coords.longitude : null,
     p_precision: p && p.coords.accuracy != null ? Math.round(p.coords.accuracy) : null,
-    p_registrado_en: ts
+    p_registrado_en: ts, p_placa: placa
   });
   // el reloj se reinicia al tocar el botón, aunque no haya señal (la hora del reporte es la del celular)
-  if(tipo === 'INICIO_RUTA') ruta = { inicio:ts, ultimo:ts };
+  if(tipo === 'INICIO_RUTA') ruta = { inicio:ts, ultimo:ts, placa };
   else if(tipo === 'FIN_RUTA') ruta = null;
   else if(ruta) ruta.ultimo = ts;
   historial.unshift({ tipo, nota, ts, ok:false });
