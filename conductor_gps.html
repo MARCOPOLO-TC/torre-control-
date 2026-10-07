@@ -60,7 +60,7 @@
 </style>
 </head>
 <body>
-<header><div><b>INLOG · Torre de Control</b><br><small>Reporte del conductor · v3 placa</small></div><small id="hora"></small></header>
+<header><div><b>INLOG · Torre de Control</b><br><small>Reporte del conductor · v4 placa</small></div><small id="hora"></small></header>
 <main>
 
   <!-- LOGIN -->
@@ -212,9 +212,14 @@ function mostrarPanel(){
   pintarRuta(); pintarHist(); vaciarColaEv(); sincronizarEstado();
 }
 function pintarPlaca(){
-  $('lblPlaca').textContent = ruta && ruta.placa ? ruta.placa : 'Sin ruta activa';
-  $('lblPlaca').style.borderStyle = ruta && ruta.placa ? 'solid' : 'dashed';
+  const el = $('lblPlaca');
+  if(!ruta){ el.textContent = 'Sin ruta activa'; el.style.borderStyle = 'dashed'; el.style.color = ''; el.style.cursor = ''; return; }
+  el.style.cursor = 'pointer';
+  if(ruta.placa){ el.textContent = ruta.placa + ' ✏️'; el.style.borderStyle = 'solid'; el.style.color = ''; }
+  else { el.textContent = 'SIN PLACA · toca aquí para escribirla'; el.style.borderStyle = 'dashed'; el.style.color = 'var(--rojo)'; }
 }
+// En ruta: tocar la placa permite escribirla o cambiarla (cambio de vehículo = reinicia la ruta con la nueva placa)
+$('lblPlaca').onclick = () => { if(ruta) abrirModal('INICIO_RUTA', true); };
 // Placas de Ecuador: 3 letras + 3 o 4 números (ABC-1234). Se normaliza con guion.
 function normalizarPlaca(v){
   const s = String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -299,15 +304,16 @@ $('btnInicio').onclick  = () => abrirModal('INICIO_RUTA');
 $('btnFin').onclick     = () => abrirModal('FIN_RUTA');
 document.querySelectorAll('.ev').forEach(b => b.onclick = () => abrirModal(b.dataset.tipo));
 
-function abrirModal(tipo){
+function abrirModal(tipo, cambioPlaca){
   tipoSel = tipo;
   const e = EVENTOS[tipo];
-  $('mTit').textContent = `${e.ico} ${e.txt}`;
+  $('mTit').textContent = cambioPlaca ? '🚚 Placa del vehículo' : `${e.ico} ${e.txt}`;
   $('mSub').textContent = {
     INICIO_RUTA:'Desde ahora corre tu tiempo de reporte. ¿Confirmas que sales a ruta?',
     FIN_RUTA:'Se detiene tu control de reportes. ¿Confirmas que terminaste la ruta?',
     NOVEDAD:'Torre de Control la verá de inmediato.'
   }[tipo] || '¿Confirmas que quieres enviar este reporte?';
+  if(cambioPlaca) $('mSub').textContent = 'Escribe la placa del vehículo que estás manejando. Cuenta como reporte y tu tiempo se reinicia.';
   $('mNotaWrap').classList.toggle('oculto', tipo !== 'NOVEDAD');
   $('mPlacaWrap').classList.toggle('oculto', tipo !== 'INICIO_RUTA');
   $('mNota').value = '';
