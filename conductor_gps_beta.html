@@ -77,7 +77,7 @@
 </style>
 </head>
 <body>
-<header><div><b>INLOG · Torre de Control</b><br><small>Reporte del conductor · v4.1 BETA alertas</small></div><small><span class="enVivo" id="enVivo" title="Alertas en vivo"></span><span id="hora"></span></small></header>
+<header><div><b>INLOG · Torre de Control</b><br><small>Reporte del conductor · v4.2 BETA alertas</small></div><small><span class="enVivo" id="enVivo" title="Alertas en vivo"></span><span id="hora"></span></small></header>
 <main>
 
   <!-- LOGIN -->
@@ -291,7 +291,7 @@ function pintarRuta(){
   pintarPlaca();
   $('cSinRuta').classList.toggle('oculto', activa);
   $('cEnRuta').classList.toggle('oculto', !activa);
-  if(!activa) return;
+  if(!activa){ $('cAlertas').classList.add('oculto'); return; }
   const vence = venceDesde(new Date(ruta.ultimo)), ahora = new Date();
   const limite = new Date(vence.getTime() + TOLERANCIA_MIN * 60000);
   $('rHora').textContent = hhmm(vence);
@@ -406,6 +406,7 @@ async function enviarEvento(tipo, nota, placaNueva){
   const ok = await vaciarColaEv();
   const hEste = historial.find(x => x.ts === ts);
   if(hEste && hEste.error){ toast('❌ No registrado: ' + hEste.error.slice(0, 90), 7000); botones.forEach(b => b.disabled = false); return; }
+  if(tipo === 'INICIO_RUTA') revisarAlertas();   // al salir a ruta ve las alertas vigentes de la vía
   toast(ok ? `${EVENTOS[tipo].ico} ${EVENTOS[tipo].txt} enviado` + (p ? '' : ' (sin ubicación)') : '📶 Sin datos: se enviará al recuperar señal', 3500);
   botones.forEach(b => b.disabled = false);
 }
@@ -480,11 +481,19 @@ function escucharCanal(alRecibir, alEstado){
 
 let alertasVistas = store.get('gps_alertas_vistas', []);
 let revisando = false;
+// ¿Esta novedad la envió este mismo celular? (se compara con la hora de sus propias novedades)
+function esPropia(a){
+  const t = new Date(a.registrado_en).getTime();
+  return historial.some(h => h.tipo === 'NOVEDAD' && Math.abs(new Date(h.ts).getTime() - t) < 5000);
+}
 async function revisarAlertas(){
   if(!sesion || revisando) return;
+  // Solo los conductores EN RUTA reciben alertas; sin ruta activa no se consulta la base
+  if(!ruta){ $('cAlertas').classList.add('oculto'); $('alertaPop').classList.add('oculto'); return; }
   revisando = true;
   try{
-    const lista = await rpc('gps_alertas_recientes', { p_codigo:sesion.codigo, p_pin:sesion.pin }) || [];
+    const lista = (await rpc('gps_alertas_recientes', { p_codigo:sesion.codigo, p_pin:sesion.pin }) || []).filter(a => !esPropia(a));
+    if(!ruta){ revisando = false; return; }   // terminó la ruta mientras se consultaba
     pintarAlertas(lista);
     const nuevas = lista.filter(a => !a.atendida && !alertasVistas.includes(a.id));
     if(nuevas.length){
