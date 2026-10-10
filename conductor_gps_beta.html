@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="theme-color" content="#0b5cab">
+<title>INLOG · Reporte del Conductor</title>
+<style>
+  :root{--azul:#0b5cab;--verde:#14853b;--rojo:#c62828;--ambar:#b26a00;--fondo:#f3f6fa;--tarjeta:#fff;--texto:#1b2430;--suave:#5b6878;--borde:#dde3ea}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--fondo);color:var(--texto);min-height:100vh}
+  header{background:var(--azul);color:#fff;padding:14px 16px;display:flex;align-items:center;justify-content:space-between}
+  header b{font-size:17px;letter-spacing:.3px}
+  header small{opacity:.85}
+  main{padding:16px;max-width:480px;margin:0 auto}
+  .card{background:var(--tarjeta);border:1px solid var(--borde);border-radius:14px;padding:18px;margin-bottom:14px}
+  label{display:block;font-size:13px;color:var(--suave);margin:10px 0 4px}
+  input{width:100%;font-size:18px;padding:12px;border:1px solid var(--borde);border-radius:10px;background:#fff}
+  button{width:100%;font-size:18px;font-weight:600;padding:16px;border:0;border-radius:12px;cursor:pointer;color:#fff;background:var(--azul);margin-top:14px}
+  button.verde{background:var(--verde)} button.rojo{background:var(--rojo)} button.gris{background:#8a96a5}
+  button:disabled{opacity:.55}
+  .err{color:var(--rojo);font-size:14px;margin-top:10px;min-height:18px}
+  .quien{font-size:20px;font-weight:700}
+  .placa{display:inline-block;margin-top:4px;padding:3px 10px;border:2px solid var(--texto);border-radius:6px;font-weight:700;letter-spacing:1px}
+  .oculto{display:none!important}
+  a.link{color:var(--suave);font-size:14px;display:block;text-align:center;margin-top:12px}
+  .tit{font-size:16px;font-weight:700;margin-bottom:4px}
+  .sub{font-size:13px;color:var(--suave);line-height:1.4}
+
+  /* Reloj de control */
+  .reloj{text-align:center;border-width:2px}
+  .reloj .eti{font-size:14px;color:var(--suave)}
+  .reloj .hora{font-size:40px;font-weight:800;letter-spacing:1px;margin:2px 0}
+  .reloj .falta{font-size:17px;font-weight:600}
+  .reloj .regla{font-size:12px;color:var(--suave);margin-top:8px}
+  .reloj.ok{border-color:#bfe3cb;background:#f2faf5} .reloj.ok .falta{color:var(--verde)}
+  .reloj.toca{border-color:#f0c97a;background:#fff8ea;animation:lat 1.2s infinite} .reloj.toca .falta{color:var(--ambar)}
+  .reloj.vencido{border-color:#efb1b1;background:#fdf0f0;animation:lat .8s infinite} .reloj.vencido .falta{color:var(--rojo)}
+  @keyframes lat{50%{box-shadow:0 0 0 6px rgba(0,0,0,.04)}}
+  .btnGrande{font-size:22px;padding:22px 16px;border-radius:16px}
+
+  .evs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  .ev{margin:0;padding:14px 8px;font-size:15px;line-height:1.25;background:#fff;color:var(--texto);border:2px solid var(--borde);display:flex;flex-direction:column;align-items:center;gap:4px}
+  .ev i{font-style:normal;font-size:26px}
+  .ev:active{transform:scale(.97)}
+  .ev.salida{border-color:#0b5cab} .ev.llegada{border-color:#6a3fb5} .ev.entrega{border-color:#14853b} .ev.parada{border-color:#b26a00}
+  .ev.novedad{grid-column:1/-1;border-color:#c62828;color:#c62828;flex-direction:row;justify-content:center;gap:10px}
+  .btnFin{background:#fff;color:var(--texto);border:2px solid var(--borde);font-size:16px}
+  .hist{margin-top:12px;border-top:1px solid var(--borde)}
+  .hist div{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px dashed var(--borde);font-size:14px}
+  .hist small{color:var(--suave);white-space:nowrap}
+  .hist .pend{color:var(--ambar)}
+  .hist .rech{color:var(--rojo)}
+  .hist .motivo{display:block;color:var(--rojo);font-size:12px;margin-top:2px}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(140px);background:#1b2430;color:#fff;padding:14px 20px;border-radius:12px;font-size:16px;font-weight:600;transition:transform .25s;z-index:20;max-width:90vw;text-align:center}
+  .toast.ver{transform:translateX(-50%) translateY(0)}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:10}
+  .modal .caja{background:#fff;width:100%;max-width:480px;border-radius:16px 16px 0 0;padding:18px}
+  textarea{width:100%;font-size:17px;padding:12px;border:1px solid var(--borde);border-radius:10px;min-height:100px;font-family:inherit}
+  .fila2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .pendEnvio{font-size:13px;color:var(--ambar);text-align:center;margin-top:8px}
+  /* Alertas de otros conductores */
+  .alertas{border:2px solid #efb1b1;background:#fdf0f0}
+  .alertas .tit{color:var(--rojo)}
+  .alertas .al{padding:8px 0;border-bottom:1px dashed #efb1b1;font-size:14px;line-height:1.35}
+  .alertas .al:last-child{border-bottom:0}
+  .alertas .al small{color:var(--suave)}
+  .alertas .al a{color:var(--azul);font-weight:600}
+  .alertas .al.atendida{opacity:.6}
+  .alertaPop{position:fixed;inset:0;background:rgba(120,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:30;padding:16px}
+  .alertaPop .caja{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:440px;border:4px solid var(--rojo);animation:pulso 1s infinite}
+  .alertaPop h2{margin:0 0 6px;color:var(--rojo);font-size:22px}
+  .alertaPop .nota{font-size:19px;font-weight:700;margin:10px 0;line-height:1.3}
+  @keyframes pulso{50%{box-shadow:0 0 0 10px rgba(198,40,40,.25)}}
+  .enVivo{display:inline-block;width:8px;height:8px;border-radius:50%;background:#8a96a5;margin-right:4px;vertical-align:middle}
+  .enVivo.on{background:#4ade80}
+</style>
+</head>
+<body>
+<header><div><b>INLOG · Torre de Control</b><br><small>Reporte del conductor · v4.1 BETA alertas</small></div><small><span class="enVivo" id="enVivo" title="Alertas en vivo"></span><span id="hora"></span></small></header>
+<main>
+
+  <!-- LOGIN -->
+  <section id="vLogin" class="card">
+    <div class="quien">Ingreso del conductor</div>
+    <label for="codigo">Código / cédula</label>
+    <input id="codigo" inputmode="numeric" autocomplete="username">
+    <label for="pin">PIN</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="current-password">
+    <button id="btnLogin">Ingresar</button>
+    <div class="err" id="errLogin"></div>
+  </section>
+
+  <!-- PANEL -->
+  <section id="vPanel" class="oculto">
+    <div class="card alertas oculto" id="cAlertas">
+      <div class="tit">⚠️ Alertas en la vía · otros conductores</div>
+      <div class="sub">Novedades reportadas a Torre de Control en las últimas 6 horas. Toma precauciones.</div>
+      <div id="listaAlertas"></div>
+    </div>
+
+    <div class="card">
+      <div class="quien" id="lblNombre"></div>
+      <div class="placa" id="lblPlaca"></div>
+    </div>
+
+    <!-- Sin ruta -->
+    <div class="card" id="cSinRuta">
+      <div class="tit">No tienes una ruta activa</div>
+      <div class="sub">Al salir a ruta, toca <b>Iniciar ruta</b> y escribe la <b>placa del vehículo</b> de hoy. Desde ese momento debes reportarte:<br>
+        · de 06:00 a 22:00 <b>cada 2 horas</b><br>· de 22:00 a 06:00 <b>cada hora</b></div>
+      <button class="verde btnGrande" id="btnInicio">🟢 Iniciar ruta</button>
+    </div>
+
+    <!-- En ruta -->
+    <div id="cEnRuta" class="oculto">
+      <div class="card reloj ok" id="reloj">
+        <div class="eti" id="rEti">Tu próximo reporte antes de las</div>
+        <div class="hora" id="rHora">--:--</div>
+        <div class="falta" id="rFalta"></div>
+        <div class="regla">Día (06–22 h): cada 2 h · Noche (22–06 h): cada hora · Tolerancia 15 min</div>
+      </div>
+      <button class="btnGrande" id="btnReporte">📍 Reportarme ahora</button>
+      <div class="pendEnvio oculto" id="pendEnvio"></div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="tit">Otros reportes</div>
+        <div class="sub">También cuentan como reporte a tiempo.</div>
+        <div class="evs">
+          <button class="ev salida"  data-tipo="SALIDA_CD"><i>🚚</i>Salí del CD</button>
+          <button class="ev llegada" data-tipo="LLEGADA_CLIENTE"><i>📍</i>Llegué al cliente</button>
+          <button class="ev entrega" data-tipo="ENTREGA"><i>✅</i>Entrega realizada</button>
+          <button class="ev parada"  data-tipo="PARADA"><i>⏸️</i>Parada / descanso</button>
+          <button class="ev novedad" data-tipo="NOVEDAD"><i>⚠️</i>Reportar novedad</button>
+        </div>
+        <div class="hist" id="hist"></div>
+        <button class="btnFin" id="btnFin">🏁 Finalizar ruta</button>
+      </div>
+    </div>
+
+    <a href="#" class="link" id="btnSalir">Cerrar sesión</a>
+  </section>
+</main>
+
+<!-- Confirmación / novedad -->
+<div class="modal oculto" id="modal">
+  <div class="caja">
+    <div class="tit" id="mTit"></div>
+    <div class="sub" id="mSub"></div>
+    <div id="mPlacaWrap" class="oculto">
+      <label for="mPlaca">Placa del vehículo que manejas hoy (obligatorio)</label>
+      <input id="mPlaca" maxlength="9" autocomplete="off" placeholder="Ej.: PBC-4521" style="text-transform:uppercase;font-size:24px;font-weight:700;letter-spacing:2px;text-align:center">
+    </div>
+    <div id="mNotaWrap" class="oculto">
+      <label for="mNota">Describe la novedad (obligatorio)</label>
+      <textarea id="mNota" maxlength="500" placeholder="Ej.: llanta baja, retén policial, cliente cerrado, vía cerrada…"></textarea>
+    </div>
+    <div class="fila2">
+      <button class="gris" id="mNo">Cancelar</button>
+      <button class="verde" id="mSi">Enviar</button>
+    </div>
+  </div>
+</div>
+<!-- Alerta emergente de otro conductor -->
+<div class="alertaPop oculto" id="alertaPop">
+  <div class="caja">
+    <h2>⚠️ ALERTA EN LA VÍA</h2>
+    <div class="sub" id="apSub"></div>
+    <div class="nota" id="apNota"></div>
+    <div id="apUbic"></div>
+    <button class="rojo" id="apOk">Entendido</button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ====== CONFIGURACIÓN ====== */
+const SUPABASE_URL = 'https://cnzldoetdehaflihrswi.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNuemxkb2V0ZGVoYWZsaWhyc3dpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAwNjIwNDIsImV4cCI6MjA5NTYzODA0Mn0.FltL4aNuTr0vAJcHtROeY5QyBB3WRb8UjHwGyFD-B5E';
+const TOLERANCIA_MIN = 15;
+/* =========================== */
+
+// Regla de control: noche (22:00–06:00) cada 60 min; día (06:00–22:00) cada 120 min,
+// pero el primer reporte nocturno debe llegar a más tardar a las 23:00.
+const esNoche = d => d.getHours() >= 22 || d.getHours() < 6;
+function venceDesde(base){
+  if(esNoche(base)) return new Date(base.getTime() + 60 * 60000);
+  const dos = new Date(base.getTime() + 120 * 60000);
+  const tope = new Date(base); tope.setHours(23, 0, 0, 0);
+  return dos < tope ? dos : tope;
+}
+
+const $ = id => document.getElementById(id);
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+
+let sesion = store.get('gps_sesion', null);            // {codigo,pin,nombre,placa}
+let ruta = store.get('gps_ruta', null);                // {inicio, ultimo} ISO
+let colaEv = store.get('gps_cola_ev', []);
+let historial = store.get('gps_hist_ev', []);          // [{tipo,nota,ts,ok}]
+let tipoSel = null, avisado = null;
+
+async function rpc(fn, body){
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method:'POST',
+    headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json' },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok){
+    const t = await r.text();
+    let msg = t || String(r.status);
+    try{ const j = JSON.parse(t); msg = j.message || j.hint || msg; }catch(e){}
+    const err = new Error(msg); err.rechazo = true; err.status = r.status;   // la base respondió y RECHAZÓ (no es falta de señal)
+    throw err;
+  }
+  const t = await r.text(); return t ? JSON.parse(t) : null;
+}
+
+/* ---------- LOGIN ---------- */
+$('btnLogin').onclick = async () => {
+  const codigo = $('codigo').value.trim(), pin = $('pin').value.trim();
+  $('errLogin').textContent = '';
+  if(!codigo || !pin){ $('errLogin').textContent = 'Ingresa código y PIN.'; return; }
+  $('btnLogin').disabled = true; $('btnLogin').textContent = 'Verificando…';
+  try{
+    const res = await rpc('gps_login', { p_codigo:codigo, p_pin:pin });
+    if(!res || !res.length) throw new Error('Código o PIN incorrectos.');
+    sesion = { codigo, pin, nombre:res[0].nombre, placa:res[0].placa || '' };
+    store.set('gps_sesion', sesion);
+    mostrarPanel();
+  }catch(e){
+    $('errLogin').textContent = e.message.includes('incorrectos') ? e.message : 'No se pudo conectar. Revisa tus datos móviles.';
+  }
+  $('btnLogin').disabled = false; $('btnLogin').textContent = 'Ingresar';
+};
+
+$('btnSalir').onclick = e => {
+  e.preventDefault();
+  if(ruta && !confirm('Tienes una ruta activa. Si cierras sesión, igual debes seguir reportándote. ¿Cerrar sesión?')) return;
+  sesion = null; ruta = null; historial = [];
+  ['gps_sesion','gps_ruta','gps_hist_ev'].forEach(k => store.del(k));
+  $('vPanel').classList.add('oculto'); $('vLogin').classList.remove('oculto');
+};
+
+function mostrarPanel(){
+  $('vLogin').classList.add('oculto'); $('vPanel').classList.remove('oculto');
+  $('lblNombre').textContent = sesion.nombre;
+  pintarRuta(); pintarHist(); vaciarColaEv(); sincronizarEstado(); revisarAlertas();
+}
+function pintarPlaca(){
+  const el = $('lblPlaca');
+  if(!ruta){ el.textContent = 'Sin ruta activa'; el.style.borderStyle = 'dashed'; el.style.color = ''; el.style.cursor = ''; return; }
+  el.style.cursor = 'pointer';
+  if(ruta.placa){ el.textContent = ruta.placa + ' ✏️'; el.style.borderStyle = 'solid'; el.style.color = ''; }
+  else { el.textContent = 'SIN PLACA · toca aquí para escribirla'; el.style.borderStyle = 'dashed'; el.style.color = 'var(--rojo)'; }
+}
+// En ruta: tocar la placa permite escribirla o cambiarla (cambio de vehículo = reinicia la ruta con la nueva placa)
+$('lblPlaca').onclick = () => { if(ruta) abrirModal('INICIO_RUTA', true); };
+// Placas de Ecuador: 3 letras + 3 o 4 números (ABC-1234). Se normaliza con guion.
+function normalizarPlaca(v){
+  const s = String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const m = s.match(/^([A-Z]{2,3})(\d{3,4})$/);
+  return m ? `${m[1]}-${m[2]}` : null;
+}
+
+// Recupera la ruta desde la base (si cambió de celular, borró datos o la Torre registró contacto)
+async function sincronizarEstado(){
+  if(!sesion || colaEv.length) return;               // si hay envíos pendientes, manda lo local
+  try{
+    const r = await rpc('gps_mi_estado', { p_codigo:sesion.codigo, p_pin:sesion.pin });
+    const e = r && r[0];
+    if(e && e.inicio_ruta && !e.fin_ruta){
+      const base = [e.ultimo_reporte, e.ultimo_contacto, e.inicio_ruta].filter(Boolean).sort().pop();
+      ruta = { inicio:e.inicio_ruta, ultimo: base, placa: e.placa || (ruta && ruta.placa) || '' };
+    } else ruta = null;
+    store.set('gps_ruta', ruta); pintarRuta();
+  }catch(err){ /* sin conexión: se queda con lo local */ }
+}
+
+/* ---------- RELOJ DE CONTROL ---------- */
+const hhmm = d => d.toLocaleTimeString('es-EC', { hour:'2-digit', minute:'2-digit' });
+function dur(ms){
+  const m = Math.max(0, Math.round(ms / 60000));
+  return m >= 60 ? `${Math.floor(m/60)} h ${String(m%60).padStart(2,'0')} min` : `${m} min`;
+}
+function pintarRuta(){
+  const activa = !!ruta;
+  pintarPlaca();
+  $('cSinRuta').classList.toggle('oculto', activa);
+  $('cEnRuta').classList.toggle('oculto', !activa);
+  if(!activa) return;
+  const vence = venceDesde(new Date(ruta.ultimo)), ahora = new Date();
+  const limite = new Date(vence.getTime() + TOLERANCIA_MIN * 60000);
+  $('rHora').textContent = hhmm(vence);
+  let cls = 'ok';
+  if(ahora < vence){
+    $('rEti').textContent = 'Tu próximo reporte antes de las';
+    $('rFalta').textContent = `Faltan ${dur(vence - ahora)}`;
+  } else if(ahora <= limite){
+    cls = 'toca';
+    $('rEti').textContent = '¡Es hora de reportarte! Vencía a las';
+    $('rFalta').textContent = `Te quedan ${dur(limite - ahora)} de tolerancia`;
+  } else {
+    cls = 'vencido';
+    $('rEti').textContent = 'REPORTE VENCIDO · debías reportarte a las';
+    $('rFalta').textContent = `Atrasado ${dur(ahora - limite)} · Repórtate ya`;
+  }
+  $('reloj').className = 'card reloj ' + cls;
+  if(cls !== 'ok' && avisado !== ruta.ultimo + cls){ avisado = ruta.ultimo + cls; alertar(cls); }
+  const p = colaEv.length;
+  $('pendEnvio').classList.toggle('oculto', !p);
+  $('pendEnvio').textContent = p ? `📶 ${p} reporte(s) guardado(s) sin señal; se enviarán solos al recuperar datos.` : '';
+}
+function alertar(cls){
+  try{ navigator.vibrate && navigator.vibrate(cls === 'vencido' ? [400,200,400,200,400] : [300,150,300]); }catch(e){}
+  try{
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    (cls === 'vencido' ? [880,660,880,660] : [740,990]).forEach((f, i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.frequency.value = f; o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(.25, ctx.currentTime + i*.2); g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + i*.2 + .18);
+      o.start(ctx.currentTime + i*.2); o.stop(ctx.currentTime + i*.2 + .19);
+    });
+  }catch(e){}
+}
+
+/* ---------- REPORTES ---------- */
+const EVENTOS = {
+  INICIO_RUTA:    { txt:'Inicio de ruta',     ico:'🟢' },
+  REPORTE:        { txt:'Reporte de control', ico:'📍' },
+  FIN_RUTA:       { txt:'Fin de ruta',        ico:'🏁' },
+  SALIDA_CD:      { txt:'Salí del CD',        ico:'🚚' },
+  LLEGADA_CLIENTE:{ txt:'Llegué al cliente',  ico:'📍' },
+  ENTREGA:        { txt:'Entrega realizada',  ico:'✅' },
+  PARADA:         { txt:'Parada / descanso',  ico:'⏸️' },
+  NOVEDAD:        { txt:'Novedad',            ico:'⚠️' }
+};
+$('btnReporte').onclick = () => enviarEvento('REPORTE', '');
+$('btnInicio').onclick  = () => abrirModal('INICIO_RUTA');
+$('btnFin').onclick     = () => abrirModal('FIN_RUTA');
+document.querySelectorAll('.ev').forEach(b => b.onclick = () => abrirModal(b.dataset.tipo));
+
+function abrirModal(tipo, cambioPlaca){
+  tipoSel = tipo;
+  const e = EVENTOS[tipo];
+  $('mTit').textContent = cambioPlaca ? '🚚 Placa del vehículo' : `${e.ico} ${e.txt}`;
+  $('mSub').textContent = {
+    INICIO_RUTA:'Desde ahora corre tu tiempo de reporte. ¿Confirmas que sales a ruta?',
+    FIN_RUTA:'Se detiene tu control de reportes. ¿Confirmas que terminaste la ruta?',
+    NOVEDAD:'Torre de Control y los demás conductores en ruta la verán de inmediato. No escribas datos personales.'
+  }[tipo] || '¿Confirmas que quieres enviar este reporte?';
+  if(cambioPlaca) $('mSub').textContent = 'Escribe la placa del vehículo que estás manejando. Cuenta como reporte y tu tiempo se reinicia.';
+  $('mNotaWrap').classList.toggle('oculto', tipo !== 'NOVEDAD');
+  $('mPlacaWrap').classList.toggle('oculto', tipo !== 'INICIO_RUTA');
+  $('mNota').value = '';
+  $('mPlaca').value = store.get('gps_ultima_placa', '') || '';   // sugiere la última placa usada
+  $('modal').classList.remove('oculto');
+  if(tipo === 'NOVEDAD') setTimeout(() => $('mNota').focus(), 100);
+  if(tipo === 'INICIO_RUTA') setTimeout(() => { $('mPlaca').focus(); $('mPlaca').select(); }, 100);
+}
+$('mNo').onclick = () => $('modal').classList.add('oculto');
+$('mSi').onclick = async () => {
+  const nota = $('mNota').value.trim();
+  if(tipoSel === 'NOVEDAD' && !nota){ $('mNota').focus(); toast('Escribe qué pasó'); return; }
+  let placa = null;
+  if(tipoSel === 'INICIO_RUTA'){
+    placa = normalizarPlaca($('mPlaca').value);
+    if(!placa){ $('mPlaca').focus(); toast('Escribe la placa completa, ej.: PBC-4521'); return; }
+    store.set('gps_ultima_placa', placa);
+  }
+  $('modal').classList.add('oculto');
+  await enviarEvento(tipoSel, nota, placa);
+};
+
+function posicionActual(){
+  return new Promise(res => {
+    if(!('geolocation' in navigator)) return res(null);
+    navigator.geolocation.getCurrentPosition(p => res(p), () => res(null), { enableHighAccuracy:true, maximumAge:30000, timeout:12000 });
+  });
+}
+
+async function enviarEvento(tipo, nota, placaNueva){
+  const botones = document.querySelectorAll('#vPanel button');
+  botones.forEach(b => b.disabled = true);
+  toast('Obteniendo ubicación…', 15000);
+  const p = await posicionActual();
+  const ts = new Date().toISOString();
+  const placa = placaNueva || (ruta && ruta.placa) || null;
+  colaEv.push({
+    p_codigo:sesion.codigo, p_pin:sesion.pin, p_tipo:tipo, p_nota:nota || null,
+    p_lat: p ? p.coords.latitude : null, p_lng: p ? p.coords.longitude : null,
+    p_precision: p && p.coords.accuracy != null ? Math.round(p.coords.accuracy) : null,
+    p_registrado_en: ts, p_placa: placa
+  });
+  // el reloj se reinicia al tocar el botón, aunque no haya señal (la hora del reporte es la del celular)
+  if(tipo === 'INICIO_RUTA') ruta = { inicio:ts, ultimo:ts, placa };
+  else if(tipo === 'FIN_RUTA') ruta = null;
+  else if(ruta) ruta.ultimo = ts;
+  historial.unshift({ tipo, nota, ts, ok:false });
+  historial = historial.slice(0, 40);
+  store.set('gps_cola_ev', colaEv); store.set('gps_hist_ev', historial); store.set('gps_ruta', ruta);
+  pintarRuta(); pintarHist();
+  const ok = await vaciarColaEv();
+  const hEste = historial.find(x => x.ts === ts);
+  if(hEste && hEste.error){ toast('❌ No registrado: ' + hEste.error.slice(0, 90), 7000); botones.forEach(b => b.disabled = false); return; }
+  toast(ok ? `${EVENTOS[tipo].ico} ${EVENTOS[tipo].txt} enviado` + (p ? '' : ' (sin ubicación)') : '📶 Sin datos: se enviará al recuperar señal', 3500);
+  botones.forEach(b => b.disabled = false);
+}
+
+let enviandoEv = false;
+async function vaciarColaEv(){
+  if(enviandoEv || !colaEv.length) return !colaEv.length;
+  enviandoEv = true;
+  try{
+    while(colaEv.length){
+      const item = colaEv[0];
+      const h = historial.find(x => x.ts === item.p_registrado_en);
+      try{
+        await rpc('gps_evento', item);
+        if(h){ h.ok = true; delete h.error; }
+        colaEv.shift();
+      }catch(e){
+        if(!e.rechazo) throw e;                                   // sin señal: se queda en cola y se reintenta
+        if(String(e.message).includes('Credenciales')){ colaEv = []; toast('Tu usuario fue desactivado. Comunícate con Torre de Control.', 5000); break; }
+        // La base rechazó este evento: se saca de la cola para que NO bloquee a los siguientes
+        if(h){ h.ok = false; h.error = e.message.slice(0, 160); }
+        colaEv.shift();
+        toast('❌ Un reporte fue rechazado: ' + e.message.slice(0, 90), 6000);
+      }
+    }
+  }catch(e){ /* sin conexión: se reintenta luego */ }
+  store.set('gps_cola_ev', colaEv); store.set('gps_hist_ev', historial);
+  pintarHist(); pintarRuta();
+  enviandoEv = false;
+  return !colaEv.length;
+}
+
+function pintarHist(){
+  const desde = Date.now() - 24 * 3600000;
+  const items = historial.filter(h => new Date(h.ts).getTime() > desde).slice(0, 12);
+  $('hist').innerHTML = items.map(h => `<div><span>${EVENTOS[h.tipo].ico} ${EVENTOS[h.tipo].txt}${h.nota ? ' · ' + h.nota.replace(/[<>&]/g,'') : ''}${h.error ? `<span class="motivo">No registrado: ${h.error.replace(/[<>&]/g,'')}</span>` : ''}</span>
+    <small class="${h.ok ? '' : h.error ? 'rech' : 'pend'}">${hhmm(new Date(h.ts))} ${h.ok ? '✓' : h.error ? '❌' : '⏳'}</small></div>`).join('');
+}
+
+let toastT = null;
+function toast(msg, ms = 2500){
+  $('toast').textContent = msg; $('toast').classList.add('ver');
+  clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.remove('ver'), ms);
+}
+
+/* ---------- ALERTAS EN VIVO (novedades de otros conductores) ---------- */
+// El aviso lo emite la propia BASE (trigger) al guardar una NOVEDAD; el celular solo escucha.
+// Por el canal viaja solo "hay novedad"; el detalle se pide con código+PIN.
+const CANAL = 'inlog-torre-alertas';
+function escucharCanal(alRecibir, alEstado){
+  let ws = null, hb = null, ref = 0, espera = 2000;
+  const topic = 'realtime:' + CANAL;
+  const enviar = (topic, event, payload) => { if(ws && ws.readyState === 1) ws.send(JSON.stringify({ topic, event, payload, ref:String(++ref) })); };
+  function conectar(){
+    try{ ws = new WebSocket(`${SUPABASE_URL.replace('https', 'wss')}/realtime/v1/websocket?apikey=${SUPABASE_KEY}&vsn=1.0.0`); }
+    catch(e){ return setTimeout(conectar, espera = Math.min(espera * 2, 60000)); }
+    ws.onopen = () => {
+      espera = 2000;
+      enviar(topic, 'phx_join', { config:{ broadcast:{ self:false, ack:false }, presence:{ key:'' }, private:false }, access_token:SUPABASE_KEY });
+      hb = setInterval(() => enviar('phoenix', 'heartbeat', {}), 25000);
+    };
+    ws.onmessage = e => {
+      let m; try{ m = JSON.parse(e.data); }catch(x){ return; }
+      if(m.event === 'phx_reply' && m.topic === topic) alEstado(m.payload && m.payload.status === 'ok');
+      if(m.event === 'broadcast' && m.payload) alRecibir(m.payload.event, m.payload.payload || {});
+    };
+    ws.onclose = () => { clearInterval(hb); alEstado(false); setTimeout(conectar, espera = Math.min(espera * 2, 60000)); };
+    ws.onerror = () => { try{ ws.close(); }catch(e){} };
+  }
+  conectar();
+}
+
+let alertasVistas = store.get('gps_alertas_vistas', []);
+let revisando = false;
+async function revisarAlertas(){
+  if(!sesion || revisando) return;
+  revisando = true;
+  try{
+    const lista = await rpc('gps_alertas_recientes', { p_codigo:sesion.codigo, p_pin:sesion.pin }) || [];
+    pintarAlertas(lista);
+    const nuevas = lista.filter(a => !a.atendida && !alertasVistas.includes(a.id));
+    if(nuevas.length){
+      alertasVistas = alertasVistas.concat(nuevas.map(a => a.id)).slice(-100);
+      store.set('gps_alertas_vistas', alertasVistas);
+      mostrarPop(nuevas[0], nuevas.length);
+    }
+  }catch(e){ /* sin señal o función no instalada: se reintenta luego */ }
+  revisando = false;
+}
+const escH = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const linkMapa = a => a.lat != null ? `<a href="https://www.google.com/maps?q=${a.lat},${a.lng}" target="_blank">📍 Ver dónde fue</a>` : '<small>Sin ubicación</small>';
+function pintarAlertas(lista){
+  $('cAlertas').classList.toggle('oculto', !lista.length);
+  $('listaAlertas').innerHTML = lista.map(a => `<div class="al ${a.atendida ? 'atendida' : ''}">
+    <b>${escH(a.nota)}</b><br><small>${hhmm(new Date(a.registrado_en))}${a.placa ? ' · ' + escH(a.placa) : ''}${a.atendida ? ' · ✓ atendida por Torre' : ''}</small> · ${linkMapa(a)}</div>`).join('');
+}
+function mostrarPop(a, n){
+  $('apSub').textContent = `Otro conductor reportó a Torre de Control a las ${hhmm(new Date(a.registrado_en))}` + (n > 1 ? ` (+${n - 1} más)` : '');
+  $('apNota').textContent = a.nota;
+  $('apUbic').innerHTML = linkMapa(a);
+  $('alertaPop').classList.remove('oculto');
+  alertar('vencido');
+}
+$('apOk').onclick = () => $('alertaPop').classList.add('oculto');
+
+escucharCanal((ev) => {
+  if(ev === 'novedad' || ev === 'validada') setTimeout(revisarAlertas, Math.random() * 3000);   // escalonado para no saturar la base
+}, ok => $('enVivo').classList.toggle('on', ok));
+setInterval(() => { if(document.visibilityState === 'visible') revisarAlertas(); }, 180000);   // respaldo cada 3 min
+
+window.addEventListener('online', vaciarColaEv);
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible' && sesion){ pintarRuta(); vaciarColaEv(); sincronizarEstado(); revisarAlertas(); } });
+setInterval(() => { if(colaEv.length) vaciarColaEv(); }, 30000);
+setInterval(() => { $('hora').textContent = hhmm(new Date()); if(sesion) pintarRuta(); }, 15000);
+$('hora').textContent = hhmm(new Date());
+
+if(sesion) mostrarPanel();
+</script>
+</body>
+</html>
