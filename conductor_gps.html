@@ -50,6 +50,8 @@
   .hist div{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px dashed var(--borde);font-size:14px}
   .hist small{color:var(--suave);white-space:nowrap}
   .hist .pend{color:var(--ambar)}
+  .hist .rech{color:var(--rojo)}
+  .hist .motivo{display:block;color:var(--rojo);font-size:12px;margin-top:2px}
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(140px);background:#1b2430;color:#fff;padding:14px 20px;border-radius:12px;font-size:16px;font-weight:600;transition:transform .25s;z-index:20;max-width:90vw;text-align:center}
   .toast.ver{transform:translateX(-50%) translateY(0)}
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:10}
@@ -57,10 +59,25 @@
   textarea{width:100%;font-size:17px;padding:12px;border:1px solid var(--borde);border-radius:10px;min-height:100px;font-family:inherit}
   .fila2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .pendEnvio{font-size:13px;color:var(--ambar);text-align:center;margin-top:8px}
+  /* Alertas de otros conductores */
+  .alertas{border:2px solid #efb1b1;background:#fdf0f0}
+  .alertas .tit{color:var(--rojo)}
+  .alertas .al{padding:8px 0;border-bottom:1px dashed #efb1b1;font-size:14px;line-height:1.35}
+  .alertas .al:last-child{border-bottom:0}
+  .alertas .al small{color:var(--suave)}
+  .alertas .al a{color:var(--azul);font-weight:600}
+  .alertas .al.atendida{opacity:.6}
+  .alertaPop{position:fixed;inset:0;background:rgba(120,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:30;padding:16px}
+  .alertaPop .caja{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:440px;border:4px solid var(--rojo);animation:pulso 1s infinite}
+  .alertaPop h2{margin:0 0 6px;color:var(--rojo);font-size:22px}
+  .alertaPop .nota{font-size:19px;font-weight:700;margin:10px 0;line-height:1.3}
+  @keyframes pulso{50%{box-shadow:0 0 0 10px rgba(198,40,40,.25)}}
+  .enVivo{display:inline-block;width:8px;height:8px;border-radius:50%;background:#8a96a5;margin-right:4px;vertical-align:middle}
+  .enVivo.on{background:#4ade80}
 </style>
 </head>
 <body>
-<header><div><b>INLOG · Torre de Control</b><br><small>Reporte del conductor · v4 placa</small></div><small id="hora"></small></header>
+<header><div><b>INLOG · Torre de Control</b><br><small>Reporte del conductor · v4.2</small></div><small><span class="enVivo" id="enVivo" title="Alertas en vivo"></span><span id="hora"></span></small></header>
 <main>
 
   <!-- LOGIN -->
@@ -76,6 +93,12 @@
 
   <!-- PANEL -->
   <section id="vPanel" class="oculto">
+    <div class="card alertas oculto" id="cAlertas">
+      <div class="tit">⚠️ Alertas en la vía · otros conductores</div>
+      <div class="sub">Novedades reportadas a Torre de Control en las últimas 6 horas. Toma precauciones.</div>
+      <div id="listaAlertas"></div>
+    </div>
+
     <div class="card">
       <div class="quien" id="lblNombre"></div>
       <div class="placa" id="lblPlaca"></div>
@@ -138,6 +161,16 @@
     </div>
   </div>
 </div>
+<!-- Alerta emergente de otro conductor -->
+<div class="alertaPop oculto" id="alertaPop">
+  <div class="caja">
+    <h2>⚠️ ALERTA EN LA VÍA</h2>
+    <div class="sub" id="apSub"></div>
+    <div class="nota" id="apNota"></div>
+    <div id="apUbic"></div>
+    <button class="rojo" id="apOk">Entendido</button>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -176,7 +209,13 @@ async function rpc(fn, body){
     headers:{ apikey:SUPABASE_KEY, Authorization:`Bearer ${SUPABASE_KEY}`, 'Content-Type':'application/json' },
     body: JSON.stringify(body)
   });
-  if(!r.ok){ const t = await r.text(); throw new Error(t || r.status); }
+  if(!r.ok){
+    const t = await r.text();
+    let msg = t || String(r.status);
+    try{ const j = JSON.parse(t); msg = j.message || j.hint || msg; }catch(e){}
+    const err = new Error(msg); err.rechazo = true; err.status = r.status;   // la base respondió y RECHAZÓ (no es falta de señal)
+    throw err;
+  }
   const t = await r.text(); return t ? JSON.parse(t) : null;
 }
 
@@ -209,7 +248,7 @@ $('btnSalir').onclick = e => {
 function mostrarPanel(){
   $('vLogin').classList.add('oculto'); $('vPanel').classList.remove('oculto');
   $('lblNombre').textContent = sesion.nombre;
-  pintarRuta(); pintarHist(); vaciarColaEv(); sincronizarEstado();
+  pintarRuta(); pintarHist(); vaciarColaEv(); sincronizarEstado(); revisarAlertas();
 }
 function pintarPlaca(){
   const el = $('lblPlaca');
@@ -252,7 +291,7 @@ function pintarRuta(){
   pintarPlaca();
   $('cSinRuta').classList.toggle('oculto', activa);
   $('cEnRuta').classList.toggle('oculto', !activa);
-  if(!activa) return;
+  if(!activa){ $('cAlertas').classList.add('oculto'); return; }
   const vence = venceDesde(new Date(ruta.ultimo)), ahora = new Date();
   const limite = new Date(vence.getTime() + TOLERANCIA_MIN * 60000);
   $('rHora').textContent = hhmm(vence);
@@ -311,7 +350,7 @@ function abrirModal(tipo, cambioPlaca){
   $('mSub').textContent = {
     INICIO_RUTA:'Desde ahora corre tu tiempo de reporte. ¿Confirmas que sales a ruta?',
     FIN_RUTA:'Se detiene tu control de reportes. ¿Confirmas que terminaste la ruta?',
-    NOVEDAD:'Torre de Control la verá de inmediato.'
+    NOVEDAD:'Torre de Control y los demás conductores en ruta la verán de inmediato. No escribas datos personales.'
   }[tipo] || '¿Confirmas que quieres enviar este reporte?';
   if(cambioPlaca) $('mSub').textContent = 'Escribe la placa del vehículo que estás manejando. Cuenta como reporte y tu tiempo se reinicia.';
   $('mNotaWrap').classList.toggle('oculto', tipo !== 'NOVEDAD');
@@ -365,6 +404,9 @@ async function enviarEvento(tipo, nota, placaNueva){
   store.set('gps_cola_ev', colaEv); store.set('gps_hist_ev', historial); store.set('gps_ruta', ruta);
   pintarRuta(); pintarHist();
   const ok = await vaciarColaEv();
+  const hEste = historial.find(x => x.ts === ts);
+  if(hEste && hEste.error){ toast('❌ No registrado: ' + hEste.error.slice(0, 90), 7000); botones.forEach(b => b.disabled = false); return; }
+  if(tipo === 'INICIO_RUTA') revisarAlertas();   // al salir a ruta ve las alertas vigentes de la vía
   toast(ok ? `${EVENTOS[tipo].ico} ${EVENTOS[tipo].txt} enviado` + (p ? '' : ' (sin ubicación)') : '📶 Sin datos: se enviará al recuperar señal', 3500);
   botones.forEach(b => b.disabled = false);
 }
@@ -375,13 +417,22 @@ async function vaciarColaEv(){
   enviandoEv = true;
   try{
     while(colaEv.length){
-      await rpc('gps_evento', colaEv[0]);
-      const h = historial.find(x => x.ts === colaEv[0].p_registrado_en); if(h) h.ok = true;
-      colaEv.shift();
+      const item = colaEv[0];
+      const h = historial.find(x => x.ts === item.p_registrado_en);
+      try{
+        await rpc('gps_evento', item);
+        if(h){ h.ok = true; delete h.error; }
+        colaEv.shift();
+      }catch(e){
+        if(!e.rechazo) throw e;                                   // sin señal: se queda en cola y se reintenta
+        if(String(e.message).includes('Credenciales')){ colaEv = []; toast('Tu usuario fue desactivado. Comunícate con Torre de Control.', 5000); break; }
+        // La base rechazó este evento: se saca de la cola para que NO bloquee a los siguientes
+        if(h){ h.ok = false; h.error = e.message.slice(0, 160); }
+        colaEv.shift();
+        toast('❌ Un reporte fue rechazado: ' + e.message.slice(0, 90), 6000);
+      }
     }
-  }catch(e){
-    if(String(e.message).includes('Credenciales')){ colaEv = []; toast('Tu usuario fue desactivado. Comunícate con Torre de Control.', 5000); }
-  }
+  }catch(e){ /* sin conexión: se reintenta luego */ }
   store.set('gps_cola_ev', colaEv); store.set('gps_hist_ev', historial);
   pintarHist(); pintarRuta();
   enviandoEv = false;
@@ -391,8 +442,8 @@ async function vaciarColaEv(){
 function pintarHist(){
   const desde = Date.now() - 24 * 3600000;
   const items = historial.filter(h => new Date(h.ts).getTime() > desde).slice(0, 12);
-  $('hist').innerHTML = items.map(h => `<div><span>${EVENTOS[h.tipo].ico} ${EVENTOS[h.tipo].txt}${h.nota ? ' · ' + h.nota.replace(/[<>&]/g,'') : ''}</span>
-    <small class="${h.ok ? '' : 'pend'}">${hhmm(new Date(h.ts))} ${h.ok ? '✓' : '⏳'}</small></div>`).join('');
+  $('hist').innerHTML = items.map(h => `<div><span>${EVENTOS[h.tipo].ico} ${EVENTOS[h.tipo].txt}${h.nota ? ' · ' + h.nota.replace(/[<>&]/g,'') : ''}${h.error ? `<span class="motivo">No registrado: ${h.error.replace(/[<>&]/g,'')}</span>` : ''}</span>
+    <small class="${h.ok ? '' : h.error ? 'rech' : 'pend'}">${hhmm(new Date(h.ts))} ${h.ok ? '✓' : h.error ? '❌' : '⏳'}</small></div>`).join('');
 }
 
 let toastT = null;
@@ -401,8 +452,81 @@ function toast(msg, ms = 2500){
   clearTimeout(toastT); toastT = setTimeout(() => $('toast').classList.remove('ver'), ms);
 }
 
+/* ---------- ALERTAS EN VIVO (novedades de otros conductores) ---------- */
+// El aviso lo emite la propia BASE (trigger) al guardar una NOVEDAD; el celular solo escucha.
+// Por el canal viaja solo "hay novedad"; el detalle se pide con código+PIN.
+const CANAL = 'inlog-torre-alertas';
+function escucharCanal(alRecibir, alEstado){
+  let ws = null, hb = null, ref = 0, espera = 2000;
+  const topic = 'realtime:' + CANAL;
+  const enviar = (topic, event, payload) => { if(ws && ws.readyState === 1) ws.send(JSON.stringify({ topic, event, payload, ref:String(++ref) })); };
+  function conectar(){
+    try{ ws = new WebSocket(`${SUPABASE_URL.replace('https', 'wss')}/realtime/v1/websocket?apikey=${SUPABASE_KEY}&vsn=1.0.0`); }
+    catch(e){ return setTimeout(conectar, espera = Math.min(espera * 2, 60000)); }
+    ws.onopen = () => {
+      espera = 2000;
+      enviar(topic, 'phx_join', { config:{ broadcast:{ self:false, ack:false }, presence:{ key:'' }, private:false }, access_token:SUPABASE_KEY });
+      hb = setInterval(() => enviar('phoenix', 'heartbeat', {}), 25000);
+    };
+    ws.onmessage = e => {
+      let m; try{ m = JSON.parse(e.data); }catch(x){ return; }
+      if(m.event === 'phx_reply' && m.topic === topic) alEstado(m.payload && m.payload.status === 'ok');
+      if(m.event === 'broadcast' && m.payload) alRecibir(m.payload.event, m.payload.payload || {});
+    };
+    ws.onclose = () => { clearInterval(hb); alEstado(false); setTimeout(conectar, espera = Math.min(espera * 2, 60000)); };
+    ws.onerror = () => { try{ ws.close(); }catch(e){} };
+  }
+  conectar();
+}
+
+let alertasVistas = store.get('gps_alertas_vistas', []);
+let revisando = false;
+// ¿Esta novedad la envió este mismo celular? (se compara con la hora de sus propias novedades)
+function esPropia(a){
+  const t = new Date(a.registrado_en).getTime();
+  return historial.some(h => h.tipo === 'NOVEDAD' && Math.abs(new Date(h.ts).getTime() - t) < 5000);
+}
+async function revisarAlertas(){
+  if(!sesion || revisando) return;
+  // Solo los conductores EN RUTA reciben alertas; sin ruta activa no se consulta la base
+  if(!ruta){ $('cAlertas').classList.add('oculto'); $('alertaPop').classList.add('oculto'); return; }
+  revisando = true;
+  try{
+    const lista = (await rpc('gps_alertas_recientes', { p_codigo:sesion.codigo, p_pin:sesion.pin }) || []).filter(a => !esPropia(a));
+    if(!ruta){ revisando = false; return; }   // terminó la ruta mientras se consultaba
+    pintarAlertas(lista);
+    const nuevas = lista.filter(a => !a.atendida && !alertasVistas.includes(a.id));
+    if(nuevas.length){
+      alertasVistas = alertasVistas.concat(nuevas.map(a => a.id)).slice(-100);
+      store.set('gps_alertas_vistas', alertasVistas);
+      mostrarPop(nuevas[0], nuevas.length);
+    }
+  }catch(e){ /* sin señal o función no instalada: se reintenta luego */ }
+  revisando = false;
+}
+const escH = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const linkMapa = a => a.lat != null ? `<a href="https://www.google.com/maps?q=${a.lat},${a.lng}" target="_blank">📍 Ver dónde fue</a>` : '<small>Sin ubicación</small>';
+function pintarAlertas(lista){
+  $('cAlertas').classList.toggle('oculto', !lista.length);
+  $('listaAlertas').innerHTML = lista.map(a => `<div class="al ${a.atendida ? 'atendida' : ''}">
+    <b>${escH(a.nota)}</b><br><small>${hhmm(new Date(a.registrado_en))}${a.placa ? ' · ' + escH(a.placa) : ''}${a.atendida ? ' · ✓ atendida por Torre' : ''}</small> · ${linkMapa(a)}</div>`).join('');
+}
+function mostrarPop(a, n){
+  $('apSub').textContent = `Otro conductor reportó a Torre de Control a las ${hhmm(new Date(a.registrado_en))}` + (n > 1 ? ` (+${n - 1} más)` : '');
+  $('apNota').textContent = a.nota;
+  $('apUbic').innerHTML = linkMapa(a);
+  $('alertaPop').classList.remove('oculto');
+  alertar('vencido');
+}
+$('apOk').onclick = () => $('alertaPop').classList.add('oculto');
+
+escucharCanal((ev) => {
+  if(ev === 'novedad' || ev === 'validada') setTimeout(revisarAlertas, Math.random() * 3000);   // escalonado para no saturar la base
+}, ok => $('enVivo').classList.toggle('on', ok));
+setInterval(() => { if(document.visibilityState === 'visible') revisarAlertas(); }, 180000);   // respaldo cada 3 min
+
 window.addEventListener('online', vaciarColaEv);
-document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible' && sesion){ pintarRuta(); vaciarColaEv(); sincronizarEstado(); } });
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible' && sesion){ pintarRuta(); vaciarColaEv(); sincronizarEstado(); revisarAlertas(); } });
 setInterval(() => { if(colaEv.length) vaciarColaEv(); }, 30000);
 setInterval(() => { $('hora').textContent = hhmm(new Date()); if(sesion) pintarRuta(); }, 15000);
 $('hora').textContent = hhmm(new Date());
